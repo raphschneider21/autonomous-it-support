@@ -1,0 +1,24 @@
+# OS Artifacts
+.DS_Store
+Thumbs.db
+
+# Logs and Caches
+*.log
+logs/
+*.tmp
+.cache/
+
+# Environment and Credentials
+.env
+.env.local
+*.pem
+*.key
+
+# Build and Dependency Artifacts
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+env/
