@@ -1,13 +1,9 @@
 # Autonomous Enterprise IT Support Agent (Tier 1)
 
-## System Overview
-This project builds an autonomous, AI-driven Tier-1 IT Support desktop agent for enterprise endpoints. It acts as an automated "troubleshooter that actually works," directly diagnosing and remediating common workstation issues (network/VPN drops, hung print spoolers, credential/cache lockups, and legacy in-house script executions). 
+## Project Overview
+This repository contains the implementation of an autonomous, AI-driven Tier-1 IT Support system designed for enterprise endpoints as part of the FHNW Generative AI module. 
 
-Upon resolution, the agent produces a **Dual-Documentation** output:
-1. **AI-Executable Runbook** (structured JSON/YAML) to instantly re-solve the issue in the future.
-2. **Human-Readable Incident Report** (plain-text Markdown) for enterprise IT auditability.
-
-If the issue cannot be safely resolved, the agent packages telemetry and attempted steps into a clean escalation ticket for Tier 2/3 human IT support.
+The system acts as a reliable first-responder for workstation issues (network/VPN failures, print spooler crashes, credential lockups, and legacy internal tooling errors). It autonomously diagnoses issues, executes safe remediations under human oversight, produces **Dual-Documentation** (AI-Executable Runbooks + Human Incident Reports), and escalates complex incidents cleanly to Tier 2/3 human IT staff.
 
 ---
 
@@ -19,17 +15,42 @@ If the issue cannot be safely resolved, the agent packages telemetry and attempt
 
 ---
 
-## Living Documentation Index
-All agents and team members MUST treat these files as the Single Source of Truth:
-- **Problem Scope & Safety Gates**: [`docs/problem-scope.md`](./docs/problem-scope.md)
-- **Dual-Documentation Specifications**: [`docs/documentation-model.md`](./docs/documentation-model.md)
-- **User Journey & Escalation Protocol**: [`docs/user-journey.md`](./docs/user-journey.md)
-- **Team Task Board & Milestones**: [`docs/roadmap.md`](./docs/roadmap.md)
+## Academic Context & Standing Deliverables
+
+All work in this repository is strictly governed by the authoritative FHNW course requirements:
+- **Final Submission Deadline**: 30 September 2026 at 23:59
+- **Deliverable 1**: 15-minute Live Proof-of-Concept Demonstration (Recorded)
+- **Deliverable 2**: Technical Design Document (TDD) adhering to the official template
+
+All development agents and contributors must target the **"Exceeded" (10/10 points)** standard across all 10 rubric categories documented in [`docs/grading-and-deliverables.md`](./docs/grading-and-deliverables.md) and [`.agents/rules/grading-rubric.md`](./.agents/rules/grading-rubric.md).
 
 ---
 
-## Engineering Rules of Engagement
-1. **Safety First**: Adhere strictly to the safety tiers defined in `.agents/rules/safety.md`. Never propose or execute unvalidated administrative commands.
-2. **Consult the Roadmap**: Before starting any task, check [`docs/roadmap.md`](./docs/roadmap.md). Respect task ownership assigned to `@Dev1`, `@Dev2`, or `@Dev3`.
-3. **Filesystem Over Chat Memory**: Document all architectural decisions, schema changes, and process modifications immediately in `docs/`. Never rely on transient conversation history.
-4. **Token & Context Hygiene**: Keep queries focused on individual documents or modules to maximize performance on free model tiers.
+## Living Documentation Index (Single Source of Truth)
+
+All agents and team members MUST treat these files as the authoritative project guides:
+- **Team Onboarding & Setup**: [`TEAM_QUICKSTART.md`](./TEAM_QUICKSTART.md)
+- **Academic Requirements & Grading Matrix**: [`docs/grading-and-deliverables.md`](./docs/grading-and-deliverables.md)
+- **Problem Scope & Boundaries**: [`docs/problem-scope.md`](./docs/problem-scope.md)
+- **Dual-Documentation Model (Runbooks & Reports)**: [`docs/documentation-model.md`](./docs/documentation-model.md)
+- **User Journey & Escalation Protocol**: [`docs/user-journey.md`](./docs/user-journey.md)
+- **Team Task Board & Milestones**: [`docs/roadmap.md`](./docs/roadmap.md)
+
+### Agent Rule System (`.agents/rules/`)
+- [`.agents/rules/grading-rubric.md`](./.agents/rules/grading-rubric.md): 10 evaluation criteria and "Exceeded" mandates.
+- [`.agents/rules/tdd-and-evidence.md`](./.agents/rules/tdd-and-evidence.md): TDD structure, live screenshot capture, and metric logging rules.
+- [`.agents/rules/live-demo-spec.md`](./.agents/rules/live-demo-spec.md): 15-minute live demonstration cadence and under-the-hood inspection script.
+- [`.agents/rules/safety.md`](./.agents/rules/safety.md): Green/Yellow/Red execution safety tiers and hard blocks.
+- [`.agents/rules/architecture.md`](./.agents/rules/architecture.md): Decoupled subsystem boundaries (UI, Engine, Knowledge, ITSM).
+- [`.agents/rules/team-conventions.md`](./.agents/rules/team-conventions.md): Git branching, PR reviews, and token hygiene.
+
+---
+
+## Core Engineering Rules of Engagement
+
+1. **Safety First**: Adhere strictly to the execution safety tiers in `.agents/rules/safety.md`. Destructive or administrative commands without human consent are strictly prohibited.
+2. **Runtime vs. Development Agents**: Distinguish clearly between the runtime agents inside the application (Incident Commander, Triage, Diagnostic, Security) and development tools (Antigravity, Codex).
+3. **Capture Evidence Live**: Do not reconstruct experiments retroactively. Capture screenshots, prompt variations, execution latencies, token consumption, and failed attempts as they happen.
+4. **Target the Live Demo**: Structure all workflows with the 15-minute live demonstration in mind (visible agent traces, disagreement resolution, human approval gate, prompt injection refusal).
+5. **Filesystem Over Chat Memory**: Document all architectural decisions, schema changes, and measurement data in `docs/` or `tests/`.
+6. **Token & Context Hygiene**: Keep queries focused on individual documents or modules to maximize performance on free model tiers.

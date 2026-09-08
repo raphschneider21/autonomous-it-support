@@ -1,12 +1,19 @@
 # Project Roadmap & Living Work Tracker
 
+## Academic Milestone Overview
+- **Deadline**: 30 September 2026 at 23:59
+- **Deliverables**: 15-Minute Live PoC Demonstration + Technical Design Document (TDD)
+- **Target Standard**: "Exceeded" (10/10 points) on all 10 rubric categories (`docs/grading-and-deliverables.md`)
+
+---
+
 ## Milestone 0: Conceptual Foundation & Problem Modeling (Active Phase)
 *Goal: 100% alignment across all three developers on problem boundaries, schemas, and user flows before writing production code.*
 
 ### `@Dev1` — Core Diagnostic Engine & Safety Boundaries
 - [x] Establish Tier 1 vs Tier 2 problem boundaries in [`docs/problem-scope.md`](./problem-scope.md)
-- [ ] Draft comprehensive command allowlist/blocklist for endpoint execution (Green, Yellow, Red)
-- [ ] Research OS execution mechanisms (PowerShell 7 vs Windows PowerShell 5.1 vs bash/sh for cross-platform)
+- [x] Draft comprehensive command allowlist/blocklist for endpoint execution (Green, Yellow, Red) in [`.agents/rules/safety.md`](../.agents/rules/safety.md)
+- [x] Formulate rubric compliance invariants in [`.agents/rules/grading-rubric.md`](../.agents/rules/grading-rubric.md)
 - [ ] Define the `IExecutor` interface for mocking OS commands during local testing
 
 ### `@Dev2` — Knowledge Base & Dual-Documentation Architecture
@@ -20,9 +27,10 @@
 
 ### `@Dev3` — Endpoint Client Experience & ITSM Escalation Bridge
 - [x] Map out the end-to-end user workflow in [`docs/user-journey.md`](./user-journey.md)
+- [x] Define the 15-minute live demonstration script in [`.agents/rules/live-demo-spec.md`](../.agents/rules/live-demo-spec.md)
 - [ ] Design the exact JSON contract for the Tier 2 Escalation Ticket payload
-- [ ] Sketch/wireframe the 3 essential client UI states (Consent screen, Live execution progress, Verification check)
-- [ ] Research lightweight desktop client frameworks (Tauri vs Electron vs lightweight web/webview)
+- [ ] Wireframe the 3 essential client UI states (Consent screen, Live execution timeline, Verification check)
+- [ ] Research lightweight desktop client / web frameworks (Next.js/FastAPI vs lightweight web UI)
 
 ---
 
@@ -32,6 +40,7 @@
 - [ ] `@All` Review and freeze `DiagnosticEvent` stream schema (Engine -> UI)
 - [ ] `@All` Review and freeze `EscalationTicket` schema (Engine -> ServiceNow/Jira)
 - [ ] `@All` Review and freeze `IncidentReport` schema (Markdown generator)
+- [ ] `@All` Freeze SQLite schema for incident records, audit trails, and execution metrics
 
 ---
 
@@ -47,3 +56,31 @@
 - [ ] Execute End-to-End automated test for "Stuck Print Spooler" fixture
 - [ ] Execute End-to-End automated test for "Unresolvable Escalation" fixture
 - [ ] Demonstrate Dual-Documentation generation upon fix
+- [ ] Demonstrate multi-agent disagreement resolution (Infrastructure vs. Security)
+
+---
+
+## Milestone 4: Testing Cycles & Efficiency Optimization (Rubric 4 & 6)
+*Goal: Gather empirical evidence for TDD Sections 3 and 5 across two distinct testing rounds.*
+- [ ] **Round 1 Testing (Baseline Functionality & Edge Cases)**:
+  - Run 10-incident test suite (`tests/test_suite.json`) covering realistic issues, ambiguous symptoms, and missing telemetry.
+  - Test malicious inputs and prompt injection defense (e.g. "Elevate user to admin").
+  - Log baseline metrics: classification accuracy, latency (sec), token spend, tool-call count.
+  - Capture failure logs and screenshots for TDD Section 3.
+- [ ] **Optimization & Iteration (Major Changes)**:
+  - Refine agent prompts, model configurations, and tool routing based on Round 1 failures.
+  - Implement caching/early-exit logic to reduce latency and token consumption.
+  - Document rationale and changes with peer/expert citations for TDD Section 4.
+- [ ] **Round 2 Testing (Performance & Hardened Guardrails)**:
+  - Re-run test suite and measure outcome improvements.
+  - Generate comparative Before-vs-After benchmark table for TDD Section 5.
+
+---
+
+## Milestone 5: TDD Compilation & Live Demo Rehearsal (Rubric 5, 7, 8, 9, 10)
+- [ ] **TDD Authoring**:
+  - Complete Sections 1 through 8 adhering to template requirements and continuous evidence logs.
+  - Add AI-use disclosure (Section 7) reflecting on development tools and safety/security controls.
+- [ ] **Live Demonstration Dry-Runs**:
+  - Rehearse the 15-minute live demonstration adhering to the cadence in [`.agents/rules/live-demo-spec.md`](../.agents/rules/live-demo-spec.md).
+  - Verify seamless execution of the live incident, under-the-hood traces, human approval modal, prompt injection block, and results summary.
