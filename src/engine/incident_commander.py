@@ -126,10 +126,10 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
     incident = get_incident(incident_id)
     ticket = generate_escalation_ticket(incident, get_audit(incident_id))
     update_incident(incident_id, status="escalated", resolution_summary="No matching runbook found. Escalated to Tier 2.")
-    _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket))
+    _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket.model_dump()))
     _push(incident_id, events, {"agent": "IncidentCommander", "message": "No runbook matched. Escalating to Tier 2 human support.", "tier": "yellow"})
     metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
-    result = {"status": "escalated", "events": events, "runbook_id": None, "escalation_ticket": ticket, "metrics": metrics}
+    result = {"status": "escalated", "events": events, "runbook_id": None, "escalation_ticket": ticket.model_dump(), "metrics": metrics}
     store.set_result(incident_id, result)
     return result
 
@@ -205,10 +205,10 @@ def _finalize_runbook(incident_id: str, runbook: dict, events: list, start: floa
     update_incident(incident_id, status="escalated",
                     resolution_summary=f"Remediation applied but verification failed for runbook {runbook_id}. Escalated to Tier 2.",
                     runbook_id=runbook_id)
-    _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket))
+    _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket.model_dump()))
     _push(incident_id, events, {"agent": "IncidentCommander", "message": "Verification failed. Escalating to Tier 2 with full telemetry.", "tier": "red"})
     metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
-    result = {"status": "escalated", "events": events, "runbook_id": runbook_id, "escalation_ticket": ticket, "metrics": metrics}
+    result = {"status": "escalated", "events": events, "runbook_id": runbook_id, "escalation_ticket": ticket.model_dump(), "metrics": metrics}
     store.set_result(incident_id, result)
     return result
 
