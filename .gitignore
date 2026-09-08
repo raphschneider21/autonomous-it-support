@@ -22,3 +22,9 @@ __pycache__/
 *.pyc
 .venv/
 env/
+
+# Runtime Data
+data/
+*.db
+*.sqlite
+*.sqlite3

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Support Agent</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>AI IT Support Agent</h1>
+
+        <!-- Screen 1: Intake -->
+        <div id="screen-intake" class="screen active">
+            <div class="warning-banner">
+                <strong>AI IT Assistant Active</strong>
+                <p>The AI troubleshooter is preparing to inspect your local system settings and application logs. No personal files will be accessed. You can click "Stop / Cancel" at any time.</p>
+            </div>
+            <h2>What's your issue?</h2>
+            <textarea id="user-prompt" placeholder="Describe your problem... (e.g. 'My printer is stuck and I cannot cancel the print job')" rows="4"></textarea>
+            <div class="button-group">
+                <button onclick="startDiagnosis()" class="btn-primary">Start Diagnostics</button>
+                <button onclick="cancelAll()" class="btn-danger">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Screen 2: Live Progress -->
+        <div id="screen-progress" class="screen">
+            <h2>Investigating...</h2>
+            <div id="event-feed" class="event-feed"></div>
+            <div id="approval-modal" class="modal hidden">
+                <div class="modal-content">
+                    <h3>Approval Required</h3>
+                    <p id="approval-description"></p>
+                    <p><strong>Command:</strong> <code id="approval-command"></code></p>
+                    <div class="button-group">
+                        <button onclick="approveAction()" class="btn-primary">Approve</button>
+                        <button onclick="denyAction()" class="btn-danger">Deny</button>
+                    </div>
+                </div>
+            </div>
+            <button onclick="emergencyStop()" class="btn-danger" style="margin-top: 1rem;">Emergency Stop</button>
+        </div>
+
+        <!-- Screen 3: Resolution -->
+        <div id="screen-resolution" class="screen">
+            <h2 id="resolution-title">Resolution</h2>
+            <div id="resolution-details"></div>
+            <div id="resolution-question" class="hidden">
+                <p>Did this fix your issue?</p>
+                <div class="button-group">
+                    <button onclick="confirmResolved()" class="btn-primary">Yes, Problem Solved</button>
+                    <button onclick="reportStillBroken()" class="btn-danger">No, Still Broken</button>
+                </div>
+            </div>
+            <button onclick="resetUI()" class="btn-secondary">New Incident</button>
+        </div>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+{
+  "Get-Service -Name spooler": {
+    "exit_code": 0,
+    "stdout": "Status   Name               DisplayName\n------   ----               -----------\nStopped  spooler            Print Spooler",
+    "stderr": ""
+  },
+  "Get-Service -Name spooler | Select-Object -ExpandProperty Status": {
+    "exit_code": 0,
+    "stdout": "Stopped",
+    "stderr": ""
+  },
+  "Stop-Service -Name spooler -Force": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Service 'spooler' stopped successfully.",
+    "stderr": ""
+  },
+  "Start-Service -Name spooler": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Service 'spooler' started successfully.",
+    "stderr": ""
+  },
+  "Get-ChildItem C:\\Windows\\System32\\spool\\PRINTERS": {
+    "exit_code": 0,
+    "stdout": "Mode    LastWriteTime     Length Name\n----    -------------     ------ ----\n-a----  9/8/2026 10:02 AM    24572 JOB00421.SPL\n-a----  9/8/2026 10:01 AM     8192 JOB00420.SPL",
+    "stderr": ""
+  },
+  "Remove-Item -Path /var/spool/cups/* -Force -ErrorAction SilentlyContinue": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Spool files cleared.",
+    "stderr": ""
+  },
+  "Test-NetConnection -ComputerName google.com -InformationLevel Detailed": {
+    "exit_code": 0,
+    "stdout": "ComputerName     : google.com\nRemotePort       : 443\nInterfaceAlias   : Ethernet\nSourceAddress    : 192.168.1.100\nTcpTestSucceeded : True",
+    "stderr": ""
+  },
+  "ipconfig /all": {
+    "exit_code": 0,
+    "stdout": "Ethernet adapter Ethernet:\n   Connection-specific DNS Suffix  . : local\n   IPv4 Address. . . . . . . . . . . : 192.168.1.100\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\n   Default Gateway . . . . . . . . . : 192.168.1.1",
+    "stderr": ""
+  },
+  "ipconfig /flushdns": {
+    "exit_code": 0,
+    "stdout": "Windows IP Configuration\nSuccessfully flushed the DNS Resolver Cache.",
+    "stderr": ""
+  },
+  "Get-NetAdapter | Select-Object Name, Status, LinkSpeed": {
+    "exit_code": 0,
+    "stdout": "Name           Status     LinkSpeed\n----           ------     ---------\nEthernet       Up         1 Gbps\nWi-Fi          Up         866.7 Mbps",
+    "stderr": ""
+  },
+  "Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 Name, CPU, WorkingSet64": {
+    "exit_code": 0,
+    "stdout": "Name               CPU    WorkingSet64\n----               ---    -----------\nchrome             45.2   1234567890\ndebugger           12.8   567890123\ncode               8.4    345678901",
+    "stderr": ""
+  }
+}
