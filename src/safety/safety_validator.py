@@ -1,3 +1,5 @@
+import re
+
 from ..models import SafetyTier
 
 # Green: auto-execute (read-only diagnostics)
@@ -38,6 +40,7 @@ YELLOW_COMMANDS = [
 # Red: hard blocked (never allowed)
 RED_COMMANDS = [
     "remove-item -path c:\\windows",
+    "remove-item -recurse c:\\windows",
     "format",
     "rd /s",
     "rmdir /s",
@@ -56,15 +59,20 @@ RED_COMMANDS = [
 ]
 
 
+def _normalize(command: str) -> str:
+    """Lowercase and collapse whitespace so 'net    user' matches 'net user'."""
+    return re.sub(r"\s+", " ", command).lower().strip()
+
+
 def validate_command(command: str) -> SafetyTier:
-    cmd_lower = command.lower().strip()
+    cmd = _normalize(command)
 
     for pattern in RED_COMMANDS:
-        if pattern in cmd_lower:
+        if pattern in cmd:
             return SafetyTier.RED
 
     for pattern in YELLOW_COMMANDS:
-        if pattern in cmd_lower:
+        if pattern in cmd:
             return SafetyTier.YELLOW
 
     return SafetyTier.GREEN

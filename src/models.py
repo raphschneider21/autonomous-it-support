@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from enum import Enum
 
@@ -25,7 +25,7 @@ class SafetyTier(str, Enum):
 
 
 class IncidentCreate(BaseModel):
-    user_prompt: str
+    user_prompt: str = Field(..., min_length=1, description="User-reported issue text. Must not be empty.")
     category: Optional[str] = None
 
 

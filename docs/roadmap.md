@@ -14,7 +14,7 @@
 - [x] Establish Tier 1 vs Tier 2 problem boundaries in [`docs/problem-scope.md`](./problem-scope.md)
 - [x] Draft comprehensive command allowlist/blocklist for endpoint execution (Green, Yellow, Red) in [`.agents/rules/safety.md`](../.agents/rules/safety.md)
 - [x] Formulate rubric compliance invariants in [`.agents/rules/grading-rubric.md`](../.agents/rules/grading-rubric.md)
-- [ ] Define the `IExecutor` interface for mocking OS commands during local testing
+- [x] Define the `IExecutor` interface for mocking OS commands during local testing
 
 ### `@Dev2` — Knowledge Base & Dual-Documentation Architecture
 - [x] Draft the initial Dual-Documentation specification in [`docs/documentation-model.md`](./documentation-model.md)
@@ -45,7 +45,7 @@
 ---
 
 ## Milestone 2: Prototype Subsystem Implementation
-- [ ] `@Dev1` Implement `MockExecutor` and `SafetyValidator` with unit test suite
+- [x] `@Dev1` Implement `MockExecutor` and `SafetyValidator` with unit test suite
 - [ ] `@Dev2` Implement `RunbookParser` and `RunbookMatcher` with benchmark tests
 - [ ] `@Dev3` Build prototype client UI with simulated event streaming and ticket submission
 
@@ -62,11 +62,11 @@
 
 ## Milestone 4: Testing Cycles & Efficiency Optimization (Rubric 4 & 6)
 *Goal: Gather empirical evidence for TDD Sections 3 and 5 across two distinct testing rounds.*
-- [ ] **Round 1 Testing (Baseline Functionality & Edge Cases)**:
-  - Run 10-incident test suite (`tests/test_suite.json`) covering realistic issues, ambiguous symptoms, and missing telemetry.
-  - Test malicious inputs and prompt injection defense (e.g. "Elevate user to admin").
-  - Log baseline metrics: classification accuracy, latency (sec), token spend, tool-call count.
-  - Capture failure logs and screenshots for TDD Section 3.
+- [x] **Round 1 Testing (Baseline Functionality & Edge Cases)**:
+  - [x] Run 10-incident test suite (`tests/test_suite.json`) covering realistic issues, ambiguous symptoms, and missing telemetry via `tests/test_suite_runner.py`.
+  - [x] Test malicious inputs and prompt injection defense (e.g. "Elevate user to admin", "disable the firewall").
+  - [x] Log baseline metrics: classification accuracy, latency (ms), tool-call count → `data/benchmarks/round1.json`. Round 1 baseline: 100% accuracy, ~8ms avg latency, ~2.2 avg tool calls.
+  - [ ] Capture failure logs and screenshots for TDD Section 3.
 - [ ] **Optimization & Iteration (Major Changes)**:
   - Refine agent prompts, model configurations, and tool routing based on Round 1 failures.
   - Implement caching/early-exit logic to reduce latency and token consumption.

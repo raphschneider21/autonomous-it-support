@@ -49,6 +49,16 @@
     "stdout": "Name           Status     LinkSpeed\n----           ------     ---------\nEthernet       Up         1 Gbps\nWi-Fi          Up         866.7 Mbps",
     "stderr": ""
   },
+  "net use Z: \\\\fileserver\\shared /persistent:yes": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Drive 'Z:' mapped to \\\\fileserver\\shared successfully.",
+    "stderr": ""
+  },
+  "net use Z:": {
+    "exit_code": 0,
+    "stdout": "Status       Local    Remote                     \nOK           Z:       \\\\fileserver\\shared",
+    "stderr": ""
+  },
   "Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 Name, CPU, WorkingSet64": {
     "exit_code": 0,
     "stdout": "Name               CPU    WorkingSet64\n----               ---    -----------\nchrome             45.2   1234567890\ndebugger           12.8   567890123\ncode               8.4    345678901",

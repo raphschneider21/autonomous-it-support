@@ -3,6 +3,27 @@ from ..safety.safety_validator import validate_command, is_allowed
 from ..models import SafetyTier
 
 
+def assess(diagnostics: list[dict], category: str) -> dict:
+    """Build a structured root-cause assessment from diagnostic results.
+
+    Used by the Incident Commander to detect disagreement between agents.
+    """
+    if diagnostics and any(d.get("exit_code") != 0 or "fail" in (d.get("stdout") or "").lower()
+                          or "stopp" in (d.get("stdout") or "").lower()
+                          or "error" in (d.get("stderr") or "").lower() for d in diagnostics):
+        return {
+            "agent": "DiagnosticAgent",
+            "root_cause": f"infrastructure/{category}",
+            "evidence": "Diagnostic output shows failures consistent with an endpoint infrastructure problem.",
+        }
+
+    return {
+        "agent": "DiagnosticAgent",
+        "root_cause": f"infrastructure/{category}",
+        "evidence": "Diagnostic output shows the endpoint infrastructure responding normally.",
+    }
+
+
 def diagnose(category: str, executor: IExecutor) -> list[dict]:
     commands = _get_diagnostic_commands(category)
     results = []
