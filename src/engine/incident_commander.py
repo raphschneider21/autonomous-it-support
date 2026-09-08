@@ -85,9 +85,9 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
     incident = get_incident(incident_id)
     ticket = generate_escalation_ticket(incident, get_audit(incident_id))
     update_incident(incident_id, status="escalated", resolution_summary="No matching runbook found. Escalated to Tier 2.")
-    _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket))
+    _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket.model_dump()))
     _emit(incident_id, {"agent": "IncidentCommander", "message": "No runbook matched. Escalating to Tier 2 human support.", "tier": "yellow"})
-    result = {"status": "escalated", "runbook_id": None, "escalation_ticket": ticket}
+    result = {"status": "escalated", "runbook_id": None, "escalation_ticket": ticket.model_dump()}
     store.set_result(incident_id, result)
     return result
 
