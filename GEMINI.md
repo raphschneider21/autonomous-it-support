@@ -11,6 +11,14 @@ If the issue cannot be safely resolved, the agent packages telemetry and attempt
 
 ---
 
+## 🌟 Team Profile & AI Communication Guidelines
+- **Audience**: The three developers on this team are **beginners/inexperienced in coding**.
+- **Plain English**: Explain all concepts, diagnostics, and architectures simply and in plain English. Never use unnecessary technical jargon. If a technical term is essential, explain what it means in everyday language.
+- **AI Owns the Code**: The AI assistant is responsible for writing, formatting, testing, and fixing the code. Do not expect the developers to write code or debug syntax errors manually.
+- **Proactive Guidance**: The AI must proactively propose the next logical, bite-sized step. When a decision is needed, present clear, understandable options rather than asking open-ended technical questions.
+
+---
+
 ## Living Documentation Index
 All agents and team members MUST treat these files as the Single Source of Truth:
 - **Problem Scope & Safety Gates**: [`docs/problem-scope.md`](./docs/problem-scope.md)
