@@ -1,5 +1,7 @@
 let currentIncidentId = null;
+let eventSource = null;
 
+/* ===== Intake ===== */
 async function startDiagnosis() {
     const prompt = document.getElementById("user-prompt").value.trim();
     if (!prompt) return alert("Please describe your issue.");
@@ -15,37 +17,68 @@ async function startDiagnosis() {
         });
         const data = await res.json();
         currentIncidentId = data.incident_id;
-
-        for (const event of data.events || []) {
-            addEvent(event);
-        }
-
-        if (data.status === "awaiting_approval") {
-            showApprovalModal(data.pending_command, "This action requires your approval.");
-        } else {
-            showResolution(data);
-        }
+        openEventStream();
     } catch (err) {
         addEvent({agent: "System", message: "Error: " + err.message, tier: "red"});
     }
 }
 
+/* ===== SSE live stream ===== */
+function openEventStream() {
+    closeEventStream();
+    eventSource = new EventSource(`/api/incidents/${currentIncidentId}/events`);
+
+    eventSource.addEventListener("event", (e) => {
+        const event = JSON.parse(e.data);
+        addEvent(event);
+    });
+
+    eventSource.addEventListener("done", (e) => {
+        const result = JSON.parse(e.data);
+        handleDone(result);
+    });
+
+    eventSource.onerror = () => {
+        // Connection dropped. If we already have the current incident and no
+        // pending approval, do not loop forever.
+    };
+}
+
+function closeEventStream() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+}
+
+function handleDone(result) {
+    const status = result.status || "unknown";
+
+    if (status === "awaiting_approval") {
+        // Stop receiving events for now; wait for the user's decision.
+        closeEventStream();
+        showApprovalModal(result.pending_command, "This action requires your approval.");
+        return;
+    }
+
+    closeEventStream();
+    showResolution(result);
+}
+
+/* ===== Approval ===== */
 async function approveAction() {
     hideApprovalModal();
     if (!currentIncidentId) return;
 
     const command = document.getElementById("approval-command").textContent;
     try {
-        const res = await fetch(`/api/incidents/${currentIncidentId}/approve`, {
+        await fetch(`/api/incidents/${currentIncidentId}/approve`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({command}),
         });
-        const data = await res.json();
-        for (const event of data.events || []) {
-            addEvent(event);
-        }
-        showResolution(data);
+        // Re-open the stream to catch the post-approval events.
+        openEventStream();
     } catch (err) {
         addEvent({agent: "System", message: "Error: " + err.message, tier: "red"});
     }
@@ -53,16 +86,19 @@ async function approveAction() {
 
 function denyAction() {
     hideApprovalModal();
+    closeEventStream();
     addEvent({agent: "System", message: "User denied the action.", tier: "yellow"});
     showResolution({status: "escalated"});
 }
 
 function emergencyStop() {
     hideApprovalModal();
+    closeEventStream();
     addEvent({agent: "System", message: "EMERGENCY STOP triggered by user.", tier: "red"});
     showResolution({status: "escalated"});
 }
 
+/* ===== Resolution ===== */
 function showResolution(data) {
     const status = data.status || "unknown";
     const title = document.getElementById("resolution-title");
@@ -111,6 +147,7 @@ function showScreen(id) {
 }
 
 function resetUI() {
+    closeEventStream();
     currentIncidentId = null;
     document.getElementById("user-prompt").value = "";
     document.getElementById("event-feed").innerHTML = "";
