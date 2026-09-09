@@ -145,9 +145,14 @@ def seed_runbooks_db(store: Optional[str] = None) -> int:
     (exposed via GET /api/runbooks) consistent with it. Idempotent
     (INSERT OR REPLACE). Returns the number of runbooks seeded.
     """
-    from ..database import insert_runbook
+    from ..database import insert_runbook, prune_runbooks_not_in
 
     runbooks = load_all_runbooks(store)
     for rb in runbooks:
         insert_runbook(runbook_to_db_format(rb))
+
+    # The database persists across restarts, so switching stores would
+    # otherwise leave the previous platform's runbooks on display in
+    # GET /api/runbooks while the engine matches only this store.
+    prune_runbooks_not_in([rb.get("runbook_id", "") for rb in runbooks])
     return len(runbooks)
