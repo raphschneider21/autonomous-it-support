@@ -18,12 +18,23 @@
 
 ### `@Dev2` — Knowledge Base & Dual-Documentation Architecture
 - [x] Draft the initial Dual-Documentation specification in [`docs/documentation-model.md`](./documentation-model.md)
-- [ ] Create 3 synthetic real-world Runbook fixtures:
+- [x] Create 3 synthetic real-world Runbook fixtures:
   - `fixtures/runbooks/cisco-vpn-stuck-adapter.yaml`
   - `fixtures/runbooks/windows-print-spooler-crash.yaml`
   - `fixtures/runbooks/legacy-vbscript-missing-drive.yaml`
-- [ ] Design the matching algorithm (how the agent matches symptoms to existing runbooks in sub-second time)
-- [ ] Draft strategy for ingesting internal legacy enterprise scripts into a vector index (RAG)
+- [x] **Build the Ubuntu 26.04 LTS VM knowledge base** — 30 runbooks in
+  `fixtures/runbooks/ubuntu-26.04/`, one per resolvable case in
+  `tests/dataset_ubuntu_easy.json`. Wayland-only / PipeWire-only / uutils-era
+  commands (no `xrandr`, `setxkbmap`, `xkill`, `pulseaudio -k`), enforced by test.
+- [x] Design the matching algorithm (how the agent matches symptoms to existing runbooks in sub-second time)
+      → `docs/runbook-matching.md`. IDF-weighted field scoring + confidence
+      floor and runner-up margin. **p95 0.15 ms**, 100% on 36 held-out
+      paraphrases, **0 wrong-runbook matches** (vs 69.4% / 11 unsafe for the
+      previous word-overlap matcher).
+- [x] Draft strategy for ingesting internal legacy enterprise scripts into a vector index (RAG)
+      → `docs/rag-ingestion-strategy.md`. Offline ingestion with a mandatory
+      human-review gate; retrieved text is evidence for an author, never an
+      executed command.
 
 ### `@Dev3` — Endpoint Client Experience & ITSM Escalation Bridge
 - [x] Map out the end-to-end user workflow in [`docs/user-journey.md`](./user-journey.md)
@@ -37,7 +48,9 @@
 ## Milestone 1: Interface Contracts (`docs/schema.md`)
 *Goal: Freeze data contracts so all three developers can build their subsystems independently.*
 - [x] `@All` Draft contract freeze in `docs/schema.md` (v0.1) with per-schema sign-off trackers
-- [ ] `@All` Review and freeze `RunbookSchema` (YAML/JSON) — drafted, needs `@Dev2` sign-off
+- [x] `@All` Review and freeze `RunbookSchema` (YAML/JSON) — **`@Dev2` signed off
+      at v1.1** (2026-09-09); `parameters` / `environment` / `source_case` added
+      additively, invariants enforced by `tests/test_ubuntu_knowledge_base.py`
 - [ ] `@All` Review and freeze `DiagnosticEvent` stream schema (Engine -> UI) — drafted, needs `@Dev3` sign-off
 - [x] `@All` Document `EscalationTicket` schema (Engine -> ServiceNow/Jira) — implemented + documented
 - [x] `@All` Document `IncidentReport` schema (Markdown generator) — implemented + documented
@@ -47,7 +60,11 @@
 
 ## Milestone 2: Prototype Subsystem Implementation
 - [x] `@Dev1` Implement `MockExecutor` and `SafetyValidator` with unit test suite
-- [ ] `@Dev2` Implement `RunbookParser` and `RunbookMatcher` with benchmark tests
+- [x] `@Dev2` Implement `RunbookParser` and `RunbookMatcher` with benchmark tests
+      — multi-store parser with mtime-invalidated cache + parameter resolution;
+      IDF matcher with abstention. Benchmarks:
+      `tests/test_runbook_retrieval_benchmark.py` →
+      `data/benchmarks/retrieval-round1.json`. 78 knowledge-base tests total.
 - [ ] `@Dev3` Build prototype client UI with simulated event streaming and ticket submission
 
 ---
@@ -78,6 +95,28 @@
   - [x] Re-run test suite and measure outcome improvements.
   - [x] Generate comparative Before-vs-After benchmark table for TDD Section 5 → `docs/benchmark-round2.md`.
   - [x] Round 2 result: 100% accuracy, **3.3 ms avg (**-49%)**, 2.22 tool calls.
+
+---
+
+## Milestone 6: Ubuntu 26.04 Cutover (opened by `@Dev2`, 2026-09-09)
+*The Ubuntu knowledge base is built, benchmarked and safety-checked, but the
+engine still runs the Windows store. These are the remaining steps to flip it.*
+
+- [x] `@Dev2` Ubuntu 26.04 runbook store + retrieval + benchmarks + safety tiers
+- [ ] `@Dev1` **Review ADR 19** — `src/safety/safety_validator.py` is your file;
+      the Ubuntu tier patterns + specificity resolution are isolated in one
+      commit and can be dropped independently. Before the change, 45 of 59
+      Ubuntu remediation commands auto-executed as Green.
+- [ ] `@Dev1` Convert `triage_agent.py` categories (printer/office/legacy →
+      network/audio/packages/desktop/input/display/storage/peripherals) and
+      `diagnostic_agent.py` commands from PowerShell to Ubuntu 26.04
+- [ ] `@Dev3` Confirm the client UI copy has no Windows-specific wording
+- [ ] `@All` Flip `RUNBOOK_STORE=ubuntu-26.04` and re-run the E2E + demo suites
+- [ ] `@Dev1`/`@Dev3` Write 10 incident prompts each **without reading**
+      `fixtures/runbooks/ubuntu-26.04/`, as a blind retrieval test set — the
+      current paraphrase set was authored by the same developer who wrote the
+      runbooks, so it is a development set, not an unbiased estimate
+      (`docs/runbook-matching.md` §5)
 
 ---
 

@@ -352,6 +352,98 @@ SQLite schema).
 built against these contracts. Rally the three to sign off (Milestone 1).
 Post-freeze changes require a version bump + new ADR.
 
+---
+
+## Decision 16: Knowledge Base Split Into Platform Stores (APPROVED — `@Dev2`)
+
+**Choice**: Runbooks live in per-platform **stores**. `fixtures/runbooks/`
+remains the `default` store (3 Windows fixtures, existing engine + live demo);
+`fixtures/runbooks/ubuntu-26.04/` is the `ubuntu-26.04` store (30 runbooks).
+`load_all_runbooks()` / `match_runbook()` take an optional `store`; with no
+argument they read `$RUNBOOK_STORE` and default to `default`.
+
+**Why**: The team's training dataset targets Ubuntu 26.04, but the engine, the
+E2E suite and the rehearsed live demo are all built on the Windows fixtures.
+A single flat store would have put "print jobs stuck in the queue" in front of
+both `RB-PRINT-001` (Windows spooler) and `RB-CUPS-001` (Ubuntu CUPS), making
+retrieval ambiguous and breaking `tests/test_e2e.py`. Separate stores let the
+Ubuntu knowledge base be built and benchmarked in full without touching the
+demo path; the cutover is one environment variable once `@Dev1` has converted
+the triage and diagnostic agents to Linux.
+
+**Rejected**: replacing the Windows fixtures outright — would have broken the
+rehearsed demo and 3 E2E tests mid-milestone.
+
+---
+
+## Decision 17: Runbook Retrieval Is Deterministic, Not an LLM Call (APPROVED — `@Dev2`)
+
+**Choice**: Symptom -> runbook matching is IDF-weighted lexical scoring with an
+explicit confidence floor (0.35) and runner-up margin (0.08), not a model call.
+`match_runbook` returns `None` — meaning *escalate* — when either gate fails.
+
+**Why**: Retrieval runs on every incident and decides whether to execute a
+remediation on a user's machine. An LLM call would add latency and token cost
+to a lookup, introduce run-to-run variance into an audit trail that has to be
+defensible, and yield a confidence number that cannot be explained to a
+reviewer. Measured: 100% on 36 held-out paraphrases, **0 wrong-runbook
+matches**, p95 0.15 ms (`data/benchmarks/retrieval-round1.json`).
+
+The previous word-overlap matcher had no abstention path at all — it returned
+its best guess for every input, including a cracked screen (-> `RB-APT-005`,
+would have run `sudo dpkg --configure -a`) and a privilege-escalation prompt
+(-> `RB-AUDIO-004`). It scored 69.4% with **11 unsafe matches** on the same set.
+
+**Revisit when**: corpus > ~200 runbooks, or held-out accuracy < 90%
+(`docs/rag-ingestion-strategy.md` §6).
+
+---
+
+## Decision 18: RunbookSchema v1.1 — `parameters`, `environment`, `source_case` (APPROVED — `@Dev2`)
+
+**Choice**: Additive, backward-compatible bump. `parameters` declares
+`{placeholder}` values resolved from defaults at load time; `environment`
+declares `vm-safe` vs `physical-only`; `source_case` back-references the
+training dataset.
+
+**Why**: Without `parameters`, a runbook has to hard-code one machine's values
+(a specific audio sink ID, monitor connector, or block device), which makes it
+a single-machine script rather than reusable knowledge. Resolution happens in
+the knowledge layer, so executors still receive concrete commands and **no
+engine change was required**. `environment` records that a VM endpoint has no
+Wi-Fi radio, touchpad or backlight, so those runbooks are documented as
+untestable on the demo VM rather than silently failing.
+
+**Impact**: v1.0 fixtures parse unchanged (all three fields optional).
+
+---
+
+## Decision 19: Safety Tiers Extended to Ubuntu 26.04 (APPROVED — `@Dev2`, needs `@Dev1` review)
+
+**Choice**: `src/safety/safety_validator.py` gains Ubuntu Green/Yellow/Red
+patterns, a blanket `sudo` -> Yellow rule, and **most-specific-pattern-wins**
+resolution (Red still absolute).
+
+**Why**: This was a live safety hole, not a nicety. Before the change, 45 of
+the 59 Ubuntu remediation commands classified **Green** — auto-executed with no
+human approval — including `sudo dpkg --configure -a`,
+`sudo mount -o remount,rw /`, `sudo modprobe -r psmouse` and `gdctl set`. The
+validator only knew PowerShell patterns, and `validate_command` defaulted
+anything unrecognised to Green.
+
+Specificity resolution is what makes the blanket `sudo` rule usable: read-only
+elevated diagnostics (`sudo apt-get check`, `sudo dpkg --audit`, `sudo fuser`)
+are listed in Green and win on pattern length, so they are not needlessly
+gated. It also preserves the existing Windows behaviour that
+`ipconfig /all` is Green while `ipconfig /flushdns` is Yellow.
+
+**After**: 49 of 59 remediation steps are Yellow (approval-gated); the
+remaining 10 are provably read-only inspection steps. All 17 of `@Dev1`'s
+existing safety tests still pass. **`@Dev1` owns this file — please review;
+this change is isolated in its own commit and can be dropped independently.**
+
+---
+
 | # | Decision | Choice |
 |---|---|---|
 | 1 | Language | Python 3.11+ |
@@ -369,3 +461,7 @@ Post-freeze changes require a version bump + new ADR.
 | 13 | Early-Exit Cache | REJECTED — would bypass per-incident audit trail |
 | 14 | Demo Determinism | Mock triage + MockExecutor; Gemini via Decision 2 for production |
 | 15 | Contract Freeze | Frozen in docs/schema.md; sign-off pending |
+| 16 | Knowledge Stores | Per-platform runbook stores; `$RUNBOOK_STORE` selects |
+| 17 | Retrieval | Deterministic IDF matching + abstention; no LLM call |
+| 18 | RunbookSchema v1.1 | `parameters`, `environment`, `source_case` (additive) |
+| 19 | Safety Tiers | Ubuntu patterns + specificity resolution (`@Dev1` review) |
