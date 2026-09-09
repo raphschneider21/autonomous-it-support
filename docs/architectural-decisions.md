@@ -295,7 +295,62 @@ httpx==0.27.0              # For testing FastAPI endpoints
 
 ---
 
-## Summary of All Decisions
+## Decision 12: Round 2 Optimization — Runbook-Store Cache (APPROVED 2026-09-09)
+
+**Choice**: Cache the parsed YAML runbook list in-process, invalidating via mtime
+(`src/knowledge/runbook_parser.py`). Also deduplicate identical diagnostic
+commands within a single pass (`src/engine/diagnostic_agent.py`).
+
+**Why**: Every incident previously re-opened + re-parsed all runbook YAML from
+disk during matching. Measured effect (TDD §5, `docs/benchmark-round2.md`):
+avg latency **6.5 → 3.3 ms (-49%)**, accuracy and tool-call count unchanged.
+
+**Evidence inviolability**: benchmark artifacts (`data/benchmarks/round*.json`)
+are only written when explicitly regenerated via `--round`; the pytest wrapper
+uses `write=False`. Motivation: a routine test run had silently overwritten the
+"Before" baseline (6.5 → 4.4 ms), which would have invalidated the TDD
+comparison.
+
+---
+
+## Decision 13: Recurring-Incident Early-Exit — REJECTED
+
+**Proposal considered**: a normalized-prompt hash cache so repeated incidents
+skip triage + diagnostics and jump straight to the known runbook plan.
+
+**Decision**: Rejected. Skipping triage/diagnostics on repeats would drop the
+per-incident audit evidence (input check, classification, diagnostic outputs)
+that the graded rubric's "auditability" and TDD §3/§5 evidence require. The
+service-relevant win is already captured by the runbook-load cache (Decision
+12), which costs no audit data. Trade-off accepted: ~3 ms extra latency per
+repeat incident in exchange for a complete, defensible audit trail.
+
+---
+
+## Decision 14: Demo Determinism — Mock Triage & Executor (APPROVED)
+
+**Choice**: The PoC runs `classify_from_mock` (deterministic word-based), and
+all OS commands go through a stateful `MockExecutor`
+(`src/executors/mock_executor.py`, `fixtures/mock_outputs.json`).
+
+**Why**: Decision 2/6 already bound the team to mocks for development. For the
+graded live demo, 100% reproducible traces are mandatory (rubric #8/#9).
+Gemini (`gemini-2.5-flash`) is the documented production classification path
+(Decision 2) with per-agent temperature/token settings; the engine calls it
+through the same interface (`classify_from_mock` mirrors its signature), so
+swapping to the real model is a config change, not an architecture change.
+
+---
+
+## Decision 15: Interface Contract Freeze (DRAFT — sign-off pending)
+
+**Choice**: All cross-subsystem contracts frozen in `docs/schema.md`
+(RunbookSchema, DiagnosticEvent SSE frames, EscalationTicket, IncidentReport,
+SQLite schema).
+
+**Why**: The three subsystems (engine, runbook store, client/escalation) were
+built against these contracts. Rally the three to sign off (Milestone 1).
+Post-freeze changes require a version bump + new ADR.
 
 | # | Decision | Choice |
 |---|---|---|
@@ -310,3 +365,7 @@ httpx==0.27.0              # For testing FastAPI endpoints
 | 9 | Dependencies | 8 packages (listed above) |
 | 10 | Git Workflow | Feature branches + PRs |
 | 11 | API Keys | .env file, never committed |
+| 12 | Round 2 Optimization | Runbook-store cache (mtime-invalidated) + diagnostic dedup; evidence artifacts immutable |
+| 13 | Early-Exit Cache | REJECTED — would bypass per-incident audit trail |
+| 14 | Demo Determinism | Mock triage + MockExecutor; Gemini via Decision 2 for production |
+| 15 | Contract Freeze | Frozen in docs/schema.md; sign-off pending |

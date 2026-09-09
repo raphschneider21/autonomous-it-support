@@ -66,14 +66,14 @@
 - [x] **Round 1 Testing (Baseline Functionality & Edge Cases)**:
   - [x] Run 10-incident test suite (`tests/test_suite.json`) covering realistic issues, ambiguous symptoms, and missing telemetry via `tests/test_suite_runner.py`.
   - [x] Test malicious inputs and prompt injection defense (e.g. "Elevate user to admin", "disable the firewall").
-  - [x] Log baseline metrics: classification accuracy, latency (ms), tool-call count → `data/benchmarks/round1.json`. Round 1 baseline: 100% accuracy, ~8ms avg latency, ~2.2 avg tool calls.
+  - [x] Log baseline metrics: classification accuracy, latency (ms), tool-call count → `data/benchmarks/round1.json`. Round 1 baseline: 100% accuracy, 6.5 ms avg latency, 2.22 avg tool calls.
   - [x] Capture failure logs and screenshots for TDD Section 3 → `docs/tdd-evidence.md` + `docs/tdd-evidence/*.log` (live-captured RED→GREEN pairs).
 - [ ] **Optimization & Iteration (Major Changes)**:
   - [x] Add runbook-store caching so repeated incidents skip disk I/O + YAML parse (Round 2)
   - [x] Deduplicate identical diagnostic commands in one pass
-  - [ ] Refine agent prompts, model configurations, and tool routing based on Round 1 failures.
-  - [ ] Implement caching/early-exit logic to reduce latency and token consumption.
-  - [ ] Document rationale and changes with peer/expert citations for TDD Section 4.
+  - [x] Refine agent prompts, model configurations, and tool routing based on Round 1 failures. — **No failures to fix**: Round 1 accuracy was 100% (0 misclassifications); prompt/tool config documented in ADR Decisions 2 & 14 (deterministic mock triage for demo, Gemini config for production).
+  - [x] Implement caching/early-exit logic to reduce latency and token consumption. — Runbook-store cache + diagnostic dedup done (Round 2). Recurring-incident early-exit implemented then **rejected**: would bypass the per-incident audit trail (see ADR 13).
+  - [ ] Document rationale and changes with peer/expert citations for TDD Section 4. — Rationale done in `docs/architectural-decisions.md` (ADR 12-14); peer/expert citations `[TEAM INPUT]`.
 - [ ] **Round 2 Testing (Performance & Hardened Guardrails)**:
   - [x] Re-run test suite and measure outcome improvements.
   - [x] Generate comparative Before-vs-After benchmark table for TDD Section 5 → `docs/benchmark-round2.md`.
