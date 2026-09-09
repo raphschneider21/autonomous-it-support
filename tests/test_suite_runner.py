@@ -40,12 +40,16 @@ def _matches_expected(case, result) -> bool:
     return result.get("status") in _expected_statuses(expected)
 
 
-def run_round1(round_num: int = 1) -> dict:
+def run_round1(round_num: int = 1, write: bool = True) -> dict:
     """Execute all test suite cases and record metrics.
 
     `round_num` controls the output filename (round1.json, round2.json, ...)
     so the same harness can produce both the Before (Round 1) and After
     (Round 2+) benchmark artifacts for the TDD efficiency comparison.
+
+    `write=False` runs the suite and returns the report without touching the
+    artifacts on disk. The pytest wrapper uses this so a test run can never
+    clobber a previously recorded benchmark round.
     """
     init_db()
 
@@ -108,8 +112,9 @@ def run_round1(round_num: int = 1) -> dict:
 
     os.makedirs(BENCHMARK_DIR, exist_ok=True)
     out = os.path.join(BENCHMARK_DIR, f"round{round_num}.json")
-    with open(out, "w") as f:
-        json.dump(report, f, indent=2)
+    if write or not os.path.exists(out):
+        with open(out, "w") as f:
+            json.dump(report, f, indent=2)
     return report
 
 
@@ -141,6 +146,6 @@ if __name__ == "__main__":
 
 
 def test_round1_suite_all_pass():
-    report = run_round1(round_num=1)
+    report = run_round1(round_num=1, write=False)
     for r in report["results"]:
         assert r["passed"], f"{r['id']} failed: expected={r['expected']} got={r['status']}"
