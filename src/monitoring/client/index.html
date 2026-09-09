@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Service Desk</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="dot" id="live-dot" title="polling"></span>
+            <h1>IT Service Desk</h1>
+            <span class="sub">Tier-1 autonomous agent · Ubuntu 26.04 endpoints</span>
+        </div>
+        <div class="endpoint" id="endpoint-label">monitoring · localhost:8001</div>
+    </header>
+
+    <section class="stats" id="stats" aria-label="Summary">
+        <div class="stat"><span class="stat-label">Open</span><span class="stat-value" id="s-open">–</span></div>
+        <div class="stat"><span class="stat-label">Closed</span><span class="stat-value ok" id="s-closed">–</span></div>
+        <div class="stat"><span class="stat-label">Escalated</span><span class="stat-value warn" id="s-escalated">–</span></div>
+        <div class="stat"><span class="stat-label">Auto-resolution</span><span class="stat-value" id="s-auto">–</span></div>
+        <div class="stat" title="Agent verified its own fix, user said the problem was still there">
+            <span class="stat-label">False resolution</span><span class="stat-value crit" id="s-false">–</span>
+        </div>
+        <div class="stat"><span class="stat-label">Avg latency</span><span class="stat-value" id="s-latency">–</span></div>
+        <div class="stat"><span class="stat-label">Tokens</span><span class="stat-value" id="s-tokens">–</span></div>
+    </section>
+
+    <main class="layout">
+        <section class="list-pane">
+            <div class="filters" role="tablist">
+                <button class="filter active" data-status="all">All</button>
+                <button class="filter" data-status="open">Open</button>
+                <button class="filter" data-status="closed">Closed</button>
+                <button class="filter" data-status="escalated">Escalated</button>
+            </div>
+            <ul class="tickets" id="ticket-list">
+                <li class="empty">Waiting for the first incident…</li>
+            </ul>
+        </section>
+
+        <section class="detail-pane" id="detail">
+            <div class="placeholder">
+                <h2>No ticket selected</h2>
+                <p>Pick a ticket to see what the agents did, which commands ran under
+                   which safety tier, and what was refused.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -15,6 +15,7 @@ from .event_stream import store
 from ..knowledge.runbook_matcher import match_runbook
 from ..knowledge.runbook_parser import load_all_runbooks
 from ..integrations.escalation import generate_escalation_ticket
+from ..integrations import monitoring_client
 from ..documentation.report_generator import generate_report
 from ..executors.mock_executor import MockExecutor
 
@@ -49,6 +50,7 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
         metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
         result = {"status": "escalated", "events": events, "runbook_id": None, "escalation_ticket": ticket.model_dump(), "metrics": metrics}
         store.set_result(incident_id, result)
+        _report_to_monitoring(incident_id, result)
         return result
 
     _log(incident_id, "SecurityAgent", "input_check", "green", None, "No injection detected")
@@ -150,6 +152,7 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
     metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
     result = {"status": "escalated", "events": events, "runbook_id": None, "escalation_ticket": ticket.model_dump(), "metrics": metrics}
     store.set_result(incident_id, result)
+    _report_to_monitoring(incident_id, result)
     return result
 
 
@@ -166,6 +169,24 @@ def approve_action(incident_id: str, command: str) -> dict:
         "Per-action approval was removed with the single-consent safety model. "
         "Incidents run to completion (resolved or escalated) in one call."
     )
+
+
+def _report_to_monitoring(incident_id: str, result: dict) -> None:
+    """Push the finished incident to the IT service desk.
+
+    Never raises and never blocks: a monitoring outage costs IT visibility, not
+    the user's fix. A failed report is written to the local audit trail so the
+    gap is discoverable afterwards rather than silent.
+    """
+    incident = get_incident(incident_id)
+    if not incident:
+        return
+    payload = monitoring_client.build_report(incident, get_audit(incident_id), result)
+    if not monitoring_client.report(payload):
+        reason = monitoring_client.last_error()
+        if reason != "disabled":
+            _log(incident_id, "IncidentCommander", "monitoring_unreachable", "yellow",
+                 None, reason or "unknown")
 
 
 def _reconcile(diag_assessment: dict, sec_assessment: dict) -> dict:
@@ -219,6 +240,7 @@ def _finalize_runbook(incident_id: str, runbook: dict, events: list, start: floa
     metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
     result = {"status": "escalated", "events": events, "runbook_id": runbook_id, "escalation_ticket": ticket.model_dump(), "metrics": metrics}
     store.set_result(incident_id, result)
+    _report_to_monitoring(incident_id, result)
     return result
 
 
@@ -266,6 +288,7 @@ def _with_report(incident_id: str, status: str, events: list, start: float, tool
     metrics = _log_metrics(incident_id, status, start, tool_calls)
     result = {"status": status, "events": events, "runbook_id": incident.get("runbook_id"), "report_path": saved_report, "metrics": metrics}
     store.set_result(incident_id, result)
+    _report_to_monitoring(incident_id, result)
     return result
 
 

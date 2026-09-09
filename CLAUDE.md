@@ -60,17 +60,63 @@ what keeps four calls inside 30 seconds.
 Every agent has a declared deterministic fallback. The suite runs with no
 `ANTHROPIC_API_KEY`; `_source` on each result records which path ran.
 
-## Commands
+## Two apps, two machines
+
+| | Runs on | Opened at | What it is |
+|---|---|---|---|
+| **Troubleshooter** | the Ubuntu VM | `http://localhost:8000` | What the employee opens on their own broken machine |
+| **Service desk** | the Mac | `http://localhost:8001` | What IT watches: tickets, agent activity, refusals |
+
+Each app is `localhost` **on its own machine**. They are separate processes with
+separate databases, and they talk over HTTP — which is why "which machine" is a
+config value rather than an architecture decision.
 
 ```bash
 pip install -r requirements.txt
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000   # http://localhost:8000
+
+# On the Mac — the service desk
+uvicorn src.monitoring.app:app --host 0.0.0.0 --port 8001   # -> localhost:8001
+
+# On the Ubuntu VM — the troubleshooter, pointed at the Mac
+export MONITORING_URL=http://10.211.55.2:8001               # Parallels host address
+uvicorn src.main:app --host 0.0.0.0 --port 8000             # -> localhost:8000
+```
+
+Both on one machine works with no configuration at all: `MONITORING_URL`
+defaults to `http://127.0.0.1:8001`. From the VM, find the Mac's address with
+`ip route | awk '/default/ {print $3}'`.
+
+**Reporting never blocks a fix.** If the service desk is unreachable the agent
+still diagnoses and remediates; the failure is written to the local audit trail
+as `monitoring_unreachable`. A dashboard outage is an IT visibility problem, not
+a reason to leave a user broken. `GET /api/monitoring` on the agent reports where
+it is pointed and whether the last report succeeded.
+
+## Commands
+
+```bash
 pytest tests/ -v
 pytest tests/test_allowlist_adversarial.py -q              # must always be green
 ```
 
 Set `ANTHROPIC_API_KEY` in `.env` (see `.env.example`) to run the agents against
 Claude. Without it everything still works on the fallback paths.
+
+## The two closure gates
+
+A ticket closes only when **both** pass:
+
+1. **The agent verifies** — the runbook's verification command ran and matched.
+   This proves the command worked.
+2. **The user confirms** — "Yes, problem solved" in the troubleshooter. This
+   proves the problem is gone.
+
+They come apart. nginx restarts cleanly, `is-active` says `active`, and the
+site is still down because the fault was upstream. When verification passes and
+the user says "Still broken", the ticket escalates to Tier 2 carrying everything
+already attempted, and the service desk counts it in
+`false_resolution_rate` — the most valuable number this system produces, because
+no technical check can see it.
 
 ## Conventions
 
@@ -84,7 +130,7 @@ Claude. Without it everything still works on the fallback paths.
 
 ## Working agreements
 
-- **Run `pytest tests/ -v` before committing.** 476 tests currently pass.
+- **Run `pytest tests/ -v` before committing.** 493 tests currently pass.
 - **Widening an allowlist rule ships with an adversarial test in the same
   commit.** Add cases to `tests/test_allowlist_adversarial.py`, never remove
   them.

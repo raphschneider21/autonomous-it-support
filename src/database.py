@@ -28,9 +28,19 @@ def init_db():
             os_version TEXT,
             resolution_summary TEXT,
             runbook_id TEXT,
+            -- 'solved' | 'still_broken' | NULL. The second of the two closure
+            -- gates: the agent's verification proves the command worked, this
+            -- proves the user's problem is actually gone. They come apart more
+            -- often than you would think.
+            user_confirmed TEXT,
             FOREIGN KEY (runbook_id) REFERENCES runbooks(id)
         )
     """)
+
+    # Additive migration for databases created before the confirmation gate.
+    existing = {r[1] for r in cursor.execute("PRAGMA table_info(incidents)").fetchall()}
+    if "user_confirmed" not in existing:
+        cursor.execute("ALTER TABLE incidents ADD COLUMN user_confirmed TEXT")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS runbooks (
