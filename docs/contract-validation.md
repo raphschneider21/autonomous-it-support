@@ -110,7 +110,7 @@ Ran after PR #1 (Ubuntu 26.04 knowledge base) merged into the engine work above.
 
 | Check | Result |
 | ----- | ------ |
-| Full suite on the merged tree | **PASS** — 307 tests, no regressions in either lane |
+| Full suite on the merged tree | **PASS** — 308 tests, no regressions in either lane |
 | Engine ↔ knowledge layer (`match_runbook`, `load_all_runbooks`, `seed_runbooks_db`) | **PASS** — signatures unchanged; new `store` argument is optional |
 | Prompt-injection `done` frame (Dev1's fix) under the Ubuntu store | **PASS** — escalation ticket present |
 | Full incident lifecycle on the Ubuntu store | **PASS** — retrieval → approval gate → remediation → verification → report |

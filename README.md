@@ -2,7 +2,7 @@
 
 [![FHNW Generative AI Project](https://img.shields.io/badge/FHNW-Generative_AI_Project-blue.svg)](https://www.fhnw.ch)
 [![Status](https://img.shields.io/badge/Status-Milestone_5:_TDD_%26_Demo_Rehearsal-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-305_passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-308_passing-brightgreen.svg)]()
 [![Target](https://img.shields.io/badge/Demonstration-15_Min_Live_PoC-orange.svg)]()
 
 An autonomous, multi-agent IT support desktop troubleshooter for enterprise workstations. Designed and implemented for the **FHNW University Generative AI Project** (Submission: September 30, 2026).
@@ -23,6 +23,9 @@ Are you a collaborating developer joining this project?
 network access is required — the PoC runs fully offline against a deterministic
 mock endpoint (ADR 14).
 
+> On a stock macOS or Debian install there is no bare `python`/`pip` on PATH —
+> use `python3` and `pip3` (or activate a virtualenv) for every command below.
+
 ```bash
 # 1. Install dependencies
 pip install -r requirements.txt
@@ -40,7 +43,7 @@ automatically on first start — there is no migration step.
 ### Running the tests
 
 ```bash
-python -m pytest tests/ -q                              # full suite (305 tests)
+python -m pytest tests/ -q                              # full suite
 python -m pytest tests/test_e2e.py -q                   # HTTP + SSE lifecycle
 python -m pytest tests/test_demo_dryrun.py -q -s        # live-demo readiness gate
 python -m pytest tests/test_runbook_retrieval_benchmark.py -q   # retrieval accuracy
@@ -218,7 +221,7 @@ Every operation proposed by an agent is evaluated against hard safety boundaries
 │   ├── benchmarks/             # Recorded benchmark evidence (tracked)
 │   ├── reports/                # Generated incident reports (gitignored)
 │   └── incidents.db            # SQLite database (gitignored)
-├── tests/                      # 305 tests: unit, E2E, benchmarks, demo gates
+├── tests/                      # Unit, E2E, benchmark and demo-gate suites
 │   ├── dataset_ubuntu_easy.json         # 33-case training dataset
 │   └── dataset_ubuntu_paraphrases.json  # Held-out retrieval evaluation set
 ├── GEMINI.md                   # AI agent entrypoint & operational rules
