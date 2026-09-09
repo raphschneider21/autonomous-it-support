@@ -82,8 +82,9 @@
 
 ## Milestone 5: TDD Compilation & Live Demo Rehearsal (Rubric 5, 7, 8, 9, 10)
 - [ ] **TDD Authoring**:
-  - Complete Sections 1 through 8 adhering to template requirements and continuous evidence logs.
-  - Add AI-use disclosure (Section 7) reflecting on development tools and safety/security controls.
+  - [x] Working draft `docs/tdd.md` (Sections 1-8, evidence-backed; TEAM INPUT markers for peer citations, AI-use disclosure, screenshots)
+  - [ ] Complete Sections 1 through 8 adhering to template requirements and continuous evidence logs.
+  - [ ] Add AI-use disclosure (Section 7) reflecting on development tools and safety/security controls.
 - [ ] **Live Demonstration Dry-Runs**:
-  - Rehearse the 15-minute live demonstration adhering to the cadence in [`.agents/rules/live-demo-spec.md`](../.agents/rules/live-demo-spec.md).
-  - Verify seamless execution of the live incident, under-the-hood traces, human approval modal, prompt injection block, and results summary.
+  - [ ] Rehearse the 15-minute live demonstration adhering to the cadence in [`.agents/rules/live-demo-spec.md`](../.agents/rules/live-demo-spec.md).
+  - [ ] Verify seamless execution of the live incident, under-the-hood traces, human approval modal, prompt injection block, and results summary.
