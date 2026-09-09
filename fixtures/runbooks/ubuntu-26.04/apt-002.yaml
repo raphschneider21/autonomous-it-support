@@ -1,0 +1,54 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-APT-002
+title: apt Cannot Lock /var/lib/dpkg (Package Manager Already Running)
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-014
+tags:
+- apt
+- dpkg
+- lock
+- lock-frontend
+- unattended-upgrades
+- packages
+trigger_signatures:
+  symptoms:
+  - Unable to lock the administration directory /var/lib/dpkg/
+  - apt says another process is using the package manager
+  - could not get lock var lib dpkg lock-frontend
+  error_codes:
+  - Unable to lock the administration directory
+  - /var/lib/dpkg/lock-frontend
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Identify which process is holding the dpkg lock
+  command: sudo fuser -v /var/lib/dpkg/lock-frontend
+  elevation_required: true
+  timeout_seconds: 15
+- step: 2
+  description: Stop the background unattended-upgrades job
+  command: sudo systemctl stop unattended-upgrades.service
+  elevation_required: true
+  timeout_seconds: 60
+- step: 3
+  description: Terminate any stuck apt processes
+  command: sudo killall -q apt apt-get
+  elevation_required: true
+  timeout_seconds: 15
+- step: 4
+  description: Finish any configuration the interrupted run left behind
+  command: sudo dpkg --configure -a
+  elevation_required: true
+  timeout_seconds: 300
+verification:
+- command: sudo fuser /var/lib/dpkg/lock-frontend
+  expected_output_regex: ^$
+- command: sudo apt-get check
+  expected_output_regex: Reading state information
+rollback_plan:
+- command: sudo systemctl start unattended-upgrades.service

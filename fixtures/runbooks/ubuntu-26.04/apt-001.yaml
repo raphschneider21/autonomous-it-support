@@ -1,0 +1,42 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-APT-001
+title: dpkg Was Interrupted and Left Packages Half-Configured
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-013
+tags:
+- apt
+- dpkg
+- interrupted
+- half-configured
+- packages
+- configure
+trigger_signatures:
+  symptoms:
+  - dpkg was interrupted, you must run sudo dpkg --configure -a
+  - the package manager says dpkg was interrupted
+  - packages are left half configured after an interrupted install
+  error_codes:
+  - 'E: dpkg was interrupted'
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Finish the pending dpkg configuration
+  command: sudo dpkg --configure -a
+  elevation_required: true
+  timeout_seconds: 300
+- step: 2
+  description: Repair any dependencies left broken
+  command: sudo apt-get --fix-broken install -y
+  elevation_required: true
+  timeout_seconds: 300
+verification:
+- command: sudo dpkg --audit
+  expected_output_regex: ^$|No packages are in an inconsistent state
+- command: sudo apt-get check
+  expected_output_regex: Reading state information
+rollback_plan: []

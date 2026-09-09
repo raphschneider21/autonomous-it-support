@@ -1,0 +1,45 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-USB-001
+title: USB Stick or External Drive Does Not Show Up
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-030
+tags:
+- usb
+- drive
+- external
+- mount
+- storage
+- removable
+- udisks
+trigger_signatures:
+  symptoms:
+  - USB stick or external drive is not showing up
+  - the external drive is not mounted
+  - the usb device is detected but no icon appears
+  error_codes: []
+  process_names: []
+parameters:
+- name: device
+  description: Block device node of the removable drive from `lsblk`
+  default: /dev/sdb1
+remediation_steps:
+- step: 1
+  description: List the block devices and their mount points
+  command: lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS
+  elevation_required: false
+  timeout_seconds: 15
+- step: 2
+  description: Mount the removable device for the current user
+  command: udisksctl mount -b {device}
+  elevation_required: false
+  timeout_seconds: 30
+verification:
+- command: lsblk -o NAME,MOUNTPOINTS
+  expected_output_regex: /run/media/
+rollback_plan:
+- command: udisksctl unmount -b /dev/sdb1

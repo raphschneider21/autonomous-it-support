@@ -1,0 +1,42 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-BT-001
+title: Bluetooth Adapter Will Not Power On
+target_os: ubuntu_26_04
+environment: physical-only
+source_case: UB-005
+tags:
+- bluetooth
+- bluetoothd
+- adapter
+- pairing
+- peripherals
+trigger_signatures:
+  symptoms:
+  - Bluetooth is stuck and will not turn on
+  - the bluetooth toggle does nothing
+  - cannot enable bluetooth from settings
+  - the bluetooth switch flips straight back to off
+  - bluetooth refuses to switch on
+  error_codes: []
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Restart the Bluetooth daemon
+  command: sudo systemctl restart bluetooth
+  elevation_required: true
+  timeout_seconds: 30
+- step: 2
+  description: Power the adapter back on
+  command: bluetoothctl power on
+  elevation_required: false
+  timeout_seconds: 15
+verification:
+- command: systemctl is-active bluetooth
+  expected_output_regex: ^active
+- command: bluetoothctl show
+  expected_output_regex: 'Powered: yes'
+rollback_plan: []

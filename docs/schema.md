@@ -14,20 +14,52 @@
 
 ---
 
-## 1. RunbookSchema (YAML) — `fixtures/runbooks/*.yaml`
+## 1. RunbookSchema (YAML) — v1.1
 
 Loaded by `src/knowledge/runbook_parser.py`; matched by `match_runbook`.
-Status: **implemented** (3 fixtures). Sign-off: `@Dev2` **[TEAM INPUT]**.
+Status: **implemented and frozen at v1.1**. Sign-off: `@Dev2` **SIGNED**
+(2026-09-09) — fields below match all 33 shipped runbooks and are enforced by
+`tests/test_ubuntu_knowledge_base.py`.
+
+### Stores
+
+The knowledge base is split into **stores** so several endpoint platforms can
+coexist without polluting each other's retrieval results:
+
+| Store | Directory | Contents |
+| ----- | --------- | -------- |
+| `default` | `fixtures/runbooks/` | 3 Windows fixtures (existing engine + live demo) |
+| `ubuntu-26.04` | `fixtures/runbooks/ubuntu-26.04/` | 30 Ubuntu 26.04 LTS VM runbooks |
+
+`load_all_runbooks()` and `match_runbook()` take an optional `store`; with no
+argument they read `$RUNBOOK_STORE`, defaulting to `default`. Store directories
+are **not** recursed into, so the two spaces stay disjoint (asserted by
+`tests/test_runbook_cache.py`).
+
+### v1.0 -> v1.1 changes
+
+| Field | Change | Reason |
+| ----- | ------ | ------ |
+| `schema_version` | `"1.0"` -> `"1.1"` | Two optional additive fields below |
+| `parameters` | **new**, optional | One runbook covers a family of incidents (which sink, which connector, which block device) instead of hard-coding one machine's values |
+| `environment` | **new**, optional | `vm-safe` \| `physical-only` — declares whether the runbook is exercisable on a VM endpoint |
+| `source_case` | **new**, optional | Back-reference to the training dataset case (`UB-014`) for traceability |
+
+Backward compatible: all three are optional and the v1.0 Windows fixtures
+still parse unchanged.
 
 | Field | Type | Required | Notes |
 | ----- | ---- | -------- | ----- |
-| `schema_version` | string | yes | `"1.0"` (reserved for future migrations) |
+| `schema_version` | string | yes | `"1.1"` (v1.0 fixtures still parse) |
 | `runbook_id` | string | yes | Unique, `RB-<DOMAIN>-<NNN>` |
 | `title` | string | yes | Human label shown in traces |
-| `target_os` | string | yes | Text (windows/linux) — informational |
-| `tags` | list[string] | yes | Match keywords (`printer`, `spooler`, …) — contributes +3 score each |
-| `trigger_signatures.symptoms` | list[string] | yes | Word-overlap matching against the user prompt |
-| `trigger_signatures.error_codes` | list[string] | optional | Exact match on error codes — contributes +10 score each |
+| `target_os` | string | yes | `windows_11` \| `ubuntu_26_04` — informational |
+| `environment` | enum | optional | `vm-safe` \| `physical-only` (v1.1) |
+| `source_case` | string | optional | Training-dataset case ID (v1.1) |
+| `parameters` | list[{name, description, default}] | optional | `{name}` placeholders in commands, resolved from `default` at load time (v1.1) |
+| `tags` | list[string] | yes | Curated match keywords — IDF-weighted at 2.0 |
+| `trigger_signatures.symptoms` | list[string] | yes | Natural-language phrasings — IDF-weighted at 3.0, plus a bigram phrase bonus |
+| `trigger_signatures.error_codes` | list[string] | optional | Quoted error strings — +6.0 each on substring match |
 | `trigger_signatures.process_names` | list[string] | optional | Reserved for process-based triggers |
 | `pre_checks` | list[{command, expected_output_regex}] | optional | Read-only preconditions (Green only) |
 | `remediation_steps` | list of steps | yes | See step schema below |
@@ -43,7 +75,29 @@ Status: **implemented** (3 fixtures). Sign-off: `@Dev2` **[TEAM INPUT]**.
 | `elevation_required` | bool | optional | Maps to Yellow tier (requires approval) |
 | `timeout_seconds` | int | optional | Informational |
 
-Reserved invariant: a runbook with **zero** `remediation_steps` is invalid.
+### Enforced invariants
+
+All asserted by `tests/test_ubuntu_knowledge_base.py`:
+
+- A runbook with **zero** `remediation_steps` is invalid.
+- `runbook_id` is unique and matches its filename.
+- No command in any section may be **Red** tier.
+- Every remediation step is either **Yellow** (approval-gated) or provably
+  read-only — a step that changes the endpoint can never be auto-executed.
+- `pre_checks` and `verification` commands must be **Green** (read-only):
+  verification may never itself change state.
+- No `{placeholder}` may survive into a command handed to an executor.
+- No command may use a subsystem removed in Ubuntu 26.04 (`xrandr`,
+  `setxkbmap`, `xkill`, `wmctrl`, `pulseaudio -k`).
+- Every runbook's `verification` block must pass against the mock endpoint.
+
+### Retrieval contract
+
+`match_runbook(prompt, error_codes=None, store=None)` returns a runbook **or
+`None`**. `None` means *escalate* — it is returned when confidence is below
+0.35 or the runner-up margin is below 0.08. `explain_match()` returns the same
+decision with `reason`, `confidence`, `margin` and the top-3 candidates for the
+audit trail. Algorithm and measured accuracy: `docs/runbook-matching.md`.
 
 ---
 
@@ -177,7 +231,8 @@ not a separate table.
 ---
 
 ## 6. Open items for freeze
-- [ ] RunbookSchema: `@Dev2` sign-off (fields above match the 3 fixtures).
+- [x] RunbookSchema: `@Dev2` **signed off** at v1.1 (2026-09-09); invariants
+      enforced by `tests/test_ubuntu_knowledge_base.py`.
 - [ ] DiagnosticEvent: `@Dev3` UI sign-off on `event`/`done` frame payloads.
 - [ ] EscalationTicket: confirm ServiceNow/Jira adapter fields with course staff.
 - [ ] `docs/user-journey.md` cross-check for any drift.

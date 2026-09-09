@@ -1,0 +1,46 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-WIFI-002
+title: No Wireless Networks Listed (Radio Soft-Blocked by rfkill)
+target_os: ubuntu_26_04
+environment: physical-only
+source_case: UB-003
+tags:
+- wifi
+- wireless
+- rfkill
+- radio
+- blocked
+- no-networks
+- network
+trigger_signatures:
+  symptoms:
+  - No Wi-Fi networks are listed at all
+  - the wireless adapter shows no available networks
+  - wifi is switched off and no networks appear in the list
+  error_codes: []
+  process_names: []
+pre_checks:
+- id: check_rfkill_state
+  command: rfkill list
+  expected_output_regex: 'Soft blocked: (yes|no)'
+remediation_steps:
+- step: 1
+  description: Remove the soft block on the wireless radio
+  command: sudo rfkill unblock wifi
+  elevation_required: true
+  timeout_seconds: 10
+- step: 2
+  description: Restart NetworkManager so it rescans for networks
+  command: sudo systemctl restart NetworkManager
+  elevation_required: true
+  timeout_seconds: 30
+verification:
+- command: rfkill list
+  expected_output_regex: 'Soft blocked: no'
+- command: nmcli -t -f STATE general
+  expected_output_regex: ^connected
+rollback_plan: []

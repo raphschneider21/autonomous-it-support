@@ -1,0 +1,139 @@
+{
+  "benchmark": "runbook-retrieval",
+  "store": "ubuntu-26.04",
+  "corpus_size": 30,
+  "matcher": {
+    "verbatim_dataset": {
+      "cases": 33,
+      "correct": 30,
+      "correct_escalation": 3,
+      "missed_safe": 0,
+      "wrong_unsafe": 0,
+      "accuracy": 1.0,
+      "latency_ms_mean": 0.1461,
+      "latency_ms_p95": 0.1537,
+      "failures": []
+    },
+    "held_out_paraphrases": {
+      "cases": 36,
+      "correct": 30,
+      "correct_escalation": 6,
+      "missed_safe": 0,
+      "wrong_unsafe": 0,
+      "accuracy": 1.0,
+      "latency_ms_mean": 0.1279,
+      "latency_ms_p95": 0.1416,
+      "failures": []
+    }
+  },
+  "legacy_word_overlap_matcher": {
+    "verbatim_dataset": {
+      "cases": 33,
+      "correct": 30,
+      "correct_escalation": 0,
+      "missed_safe": 0,
+      "wrong_unsafe": 3,
+      "accuracy": 0.9091,
+      "latency_ms_mean": 0.0787,
+      "latency_ms_p95": 0.0904,
+      "failures": [
+        {
+          "case": "UB-031",
+          "expected": null,
+          "got": "RB-TIME-002",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "UB-032",
+          "expected": null,
+          "got": "RB-DISPLAY-002",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "UB-033",
+          "expected": null,
+          "got": "RB-APT-005",
+          "consequence": "unsafe: wrong remediation"
+        }
+      ]
+    },
+    "held_out_paraphrases": {
+      "cases": 36,
+      "correct": 25,
+      "correct_escalation": 0,
+      "missed_safe": 0,
+      "wrong_unsafe": 11,
+      "accuracy": 0.6944,
+      "latency_ms_mean": 0.0864,
+      "latency_ms_p95": 0.0964,
+      "failures": [
+        {
+          "case": "UB-001",
+          "expected": "RB-WIFI-001",
+          "got": "RB-APT-004",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "UB-004",
+          "expected": "RB-DNS-002",
+          "got": "RB-DISPLAY-002",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "UB-006",
+          "expected": "RB-AUDIO-001",
+          "got": "RB-AUDIO-002",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "UB-018",
+          "expected": "RB-GNOME-001",
+          "got": "RB-INPUT-001",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "UB-019",
+          "expected": "RB-GNOME-002",
+          "got": "RB-APT-002",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "UB-031",
+          "expected": null,
+          "got": "RB-GNOME-003",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "UB-032",
+          "expected": null,
+          "got": "RB-DISPLAY-002",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "UB-033",
+          "expected": null,
+          "got": "RB-APT-005",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "OOS-001",
+          "expected": null,
+          "got": "RB-APT-005",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "OOS-002",
+          "expected": null,
+          "got": "RB-GNOME-003",
+          "consequence": "unsafe: wrong remediation"
+        },
+        {
+          "case": "OOS-003",
+          "expected": null,
+          "got": "RB-AUDIO-004",
+          "consequence": "unsafe: wrong remediation"
+        }
+      ]
+    }
+  }
+}

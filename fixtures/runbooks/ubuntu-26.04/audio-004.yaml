@@ -1,0 +1,41 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-AUDIO-004
+title: Master Output Muted and the Volume Control Does Nothing
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-009
+tags:
+- audio
+- muted
+- volume
+- sound
+- output
+- sink
+trigger_signatures:
+  symptoms:
+  - Sound is muted and the volume icon does nothing
+  - the volume control has no effect
+  - the master output channel is muted
+  - the volume slider moves but the sound stays silent
+  - audio is silent although nothing looks wrong
+  error_codes: []
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Unmute the default audio output
+  command: wpctl set-mute @DEFAULT_AUDIO_SINK@ 0
+  elevation_required: false
+  timeout_seconds: 10
+- step: 2
+  description: Set the output volume to 70 percent
+  command: wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.70
+  elevation_required: false
+  timeout_seconds: 10
+verification:
+- command: wpctl get-volume @DEFAULT_AUDIO_SINK@
+  expected_output_regex: 'Volume: 0\.70(?!.*MUTED)'
+rollback_plan: []

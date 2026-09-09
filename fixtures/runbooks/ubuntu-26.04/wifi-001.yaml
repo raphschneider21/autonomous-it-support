@@ -1,0 +1,48 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-WIFI-001
+title: Wi-Fi Drops Repeatedly Due to Adapter Power Saving
+target_os: ubuntu_26_04
+environment: physical-only
+source_case: UB-001
+tags:
+- wifi
+- wireless
+- disconnect
+- dropping
+- powersave
+- network
+- nmcli
+trigger_signatures:
+  symptoms:
+  - Wi-Fi keeps disconnecting every few minutes
+  - wireless connection drops repeatedly and reconnects
+  - wifi disconnects when the laptop is idle
+  error_codes: []
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Bounce the wireless radio to restore the link immediately
+  command: nmcli radio wifi off; nmcli radio wifi on
+  elevation_required: false
+  timeout_seconds: 20
+- step: 2
+  description: Disable Wi-Fi power saving so the adapter stops sleeping under light traffic
+  command: sudo sed -i 's/wifi.powersave = 3/wifi.powersave = 2/' /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
+  elevation_required: true
+  timeout_seconds: 10
+- step: 3
+  description: Restart NetworkManager to apply the power-saving policy
+  command: sudo systemctl restart NetworkManager
+  elevation_required: true
+  timeout_seconds: 30
+verification:
+- command: nmcli -t -f STATE general
+  expected_output_regex: ^connected
+- command: cat /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
+  expected_output_regex: wifi\.powersave = 2
+rollback_plan:
+- command: sudo systemctl restart NetworkManager

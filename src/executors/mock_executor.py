@@ -1,9 +1,11 @@
+import glob
 import json
 import os
 import re
 from .executor_interface import IExecutor
 
-FIXTURES_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "mock_outputs.json")
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures")
+FIXTURES_PATH = os.path.join(FIXTURES_DIR, "mock_outputs.json")
 
 
 class MockExecutor(IExecutor):
@@ -19,10 +21,23 @@ class MockExecutor(IExecutor):
         self.service_state = {"spooler": "Stopped"}
 
     def _load_fixtures(self) -> dict:
+        """Load `mock_outputs.json`, then any per-platform `mock_outputs_*.json`.
+
+        Fixtures are matched by substring in insertion order, so the base file
+        is loaded first and keeps precedence; a platform file (for example
+        `mock_outputs_ubuntu-26.04.json`) only adds commands the base file does
+        not already answer.
+        """
+        outputs: dict = {}
         if os.path.exists(FIXTURES_PATH):
             with open(FIXTURES_PATH, "r") as f:
-                return json.load(f)
-        return {}
+                outputs.update(json.load(f))
+
+        for path in sorted(glob.glob(os.path.join(FIXTURES_DIR, "mock_outputs_*.json"))):
+            with open(path, "r") as f:
+                for command, result in json.load(f).items():
+                    outputs.setdefault(command, result)
+        return outputs
 
     def _service_output(self, name: str, state: str) -> dict:
         return {

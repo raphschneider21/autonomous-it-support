@@ -10,12 +10,22 @@ A critical innovation of this project is the strict separation between **AI-Exec
 ## 2. Specification A: AI-Executable Runbook (YAML)
 
 ### Schema Definition
+> **v1.1** (frozen 2026-09-09, `docs/schema.md` §1). Three optional fields
+> were added additively: `parameters`, `environment`, `source_case`.
+
 ```yaml
-schema_version: "1.0"
-runbook_id: string                   # Unique ID, e.g., "RB-PRINT-001"
+schema_version: "1.1"
+runbook_id: string                   # Unique ID, e.g., "RB-CUPS-001"
 title: string                        # Descriptive name
-target_os: string                    # "windows_11" | "windows_10" | "linux_ubuntu"
+target_os: string                    # "windows_11" | "ubuntu_26_04"
+environment: string                  # v1.1: "vm-safe" | "physical-only"
+source_case: string                  # v1.1: training-dataset case ID, e.g. "UB-029"
 tags: [string]                       # Keywords for fast indexing
+
+parameters:                          # v1.1: resolved into commands at load time
+  - name: string                     # placeholder written as {name} in a command
+    description: string              # what a technician should put here
+    default: string                  # value used when nothing overrides it
 
 trigger_signatures:
   error_codes: [string]              # Event Viewer or API error codes
@@ -84,6 +94,64 @@ verification:
 rollback_plan:
   - command: "Start-Service -Name spooler"
 ```
+
+### Real-World Example: Ubuntu 26.04 Stuck Print Queue (`RB-CUPS-001`)
+
+The same schema on the Ubuntu 26.04 LTS VM endpoint. Note what the platform
+forces: the fix is CUPS rather than the Windows spooler, verification is
+read-only (`systemctl is-active`, `lpstat`), and every state-altering step
+lands on the Yellow tier so the approval gate fires.
+
+```yaml
+schema_version: "1.1"
+runbook_id: "RB-CUPS-001"
+title: "Print Queue Stuck and Nothing Prints (CUPS Backlogged)"
+target_os: "ubuntu_26_04"
+environment: "vm-safe"
+source_case: "UB-029"
+tags: ["printer", "printing", "queue", "cups", "stuck", "spooler", "jobs"]
+
+trigger_signatures:
+  symptoms:
+    - "Print jobs are stuck in the queue and nothing prints"
+    - "the printer queue will not clear"
+    - "documents sit in the print queue and never come out"
+  error_codes: []
+
+pre_checks:
+  - id: "check_cups_state"
+    command: "systemctl is-active cups"
+    expected_output_regex: "active|inactive|failed"
+
+remediation_steps:
+  - step: 1
+    description: "Cancel every queued print job"
+    command: "cancel -a"
+    elevation_required: false
+    timeout_seconds: 20
+  - step: 2
+    description: "Restart the CUPS printing service"
+    command: "sudo systemctl restart cups"
+    elevation_required: true
+    timeout_seconds: 30
+
+verification:
+  - command: "systemctl is-active cups"
+    expected_output_regex: "^active"
+  - command: "lpstat -o"
+    expected_output_regex: "^$"
+```
+
+**Ubuntu 26.04 authoring constraints** (enforced by
+`tests/test_ubuntu_knowledge_base.py`):
+
+| Constraint | Consequence for runbook authors |
+| --- | --- |
+| GNOME 50 is **Wayland-only** — no X11 session | `xrandr`, `setxkbmap`, `xkill`, `wmctrl` reach XWayland clients only. Use `gdctl`, `gsettings`, `pkill`. |
+| Audio is **PipeWire + WirePlumber** | `pulseaudio -k` is meaningless. Use `wpctl` (`pactl` still works via `pipewire-pulse`). |
+| Removable media mount under **`/run/media`** | Verification regexes must not expect `/media`. |
+| `sudo` is **sudo-rs**, coreutils are **uutils** | Output formats are close but not identical to GNU; verification regexes stay loose. |
+| Endpoint is a **VM** | No Wi-Fi radio, touchpad or backlight. Those runbooks are marked `environment: physical-only`. |
 
 ---
 

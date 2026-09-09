@@ -1,0 +1,40 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-GNOME-001
+title: GNOME Shell Hung (Top Bar and Desktop Unresponsive)
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-018
+tags:
+- gnome
+- shell
+- desktop
+- top-bar
+- frozen
+- unresponsive
+- wayland
+trigger_signatures:
+  symptoms:
+  - The top bar and desktop are frozen, clicks do nothing
+  - gnome shell is not responding but the mouse still moves
+  - the desktop shell has hung
+  error_codes: []
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Check whether GNOME Shell still answers on the session bus
+  command: busctl --user call org.gnome.Shell /org/gnome/Shell org.freedesktop.DBus.Peer Ping
+  elevation_required: false
+  timeout_seconds: 15
+- step: 2
+  description: Restart the GNOME Shell user service (ends the graphical session on Wayland)
+  command: systemctl --user restart org.gnome.Shell@wayland.service
+  elevation_required: false
+  timeout_seconds: 60
+verification:
+- command: systemctl --user is-active org.gnome.Shell@wayland.service
+  expected_output_regex: ^active
+rollback_plan: []

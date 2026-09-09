@@ -1,0 +1,49 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-GNOME-003
+title: A Single Application Is Frozen and Will Not Close
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-020
+tags:
+- application
+- frozen
+- hung
+- not-responding
+- kill
+- process
+- close
+trigger_signatures:
+  symptoms:
+  - An application is frozen and will not close
+  - the app is not responding and will not quit
+  - a program hangs and the close button does nothing
+  error_codes: []
+  process_names: []
+parameters:
+- name: app_name
+  description: Process name or command fragment of the hung application
+  default: firefox
+remediation_steps:
+- step: 1
+  description: List the longest-running processes to identify the hung application
+  command: ps -eo pid,etimes,stat,comm --sort=-etimes
+  elevation_required: false
+  timeout_seconds: 15
+- step: 2
+  description: Ask the application to terminate cleanly
+  command: pkill -TERM -f {app_name}
+  elevation_required: false
+  timeout_seconds: 20
+- step: 3
+  description: Force the application to stop if it ignored the terminate signal
+  command: pkill -KILL -f {app_name}
+  elevation_required: false
+  timeout_seconds: 15
+verification:
+- command: pgrep -f firefox
+  expected_output_regex: ^$
+rollback_plan: []
