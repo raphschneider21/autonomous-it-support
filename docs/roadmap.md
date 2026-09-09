@@ -88,7 +88,7 @@
 - [ ] **Optimization & Iteration (Major Changes)**:
   - [x] Add runbook-store caching so repeated incidents skip disk I/O + YAML parse (Round 2)
   - [x] Deduplicate identical diagnostic commands in one pass
-  - [x] Refine agent prompts, model configurations, and tool routing based on Round 1 failures. — **No failures to fix**: Round 1 accuracy was 100% (0 misclassifications); prompt/tool config documented in ADR Decisions 2 & 14 (deterministic mock triage for demo, Gemini config for production).
+  - [x] Refine agent prompts, model configurations, and tool routing based on Round 1 failures. — **No failures to fix**: Round 1 accuracy was 100% (0 misclassifications); prompt/tool config documented in ADR Decisions 2 & 14 (Claude per agent, with deterministic fallbacks). **Superseded**: Round 1 measured the deterministic path only, so 100% accuracy says the test set was too easy to detect a change, not that the system is perfect. Re-baseline against the Ubuntu suite with the model in the loop.
   - [x] Implement caching/early-exit logic to reduce latency and token consumption. — Runbook-store cache + diagnostic dedup done (Round 2). Recurring-incident early-exit implemented then **rejected**: would bypass the per-incident audit trail (see ADR 13).
   - [ ] Document rationale and changes with peer/expert citations for TDD Section 4. — Rationale done in `docs/architectural-decisions.md` (ADR 12-14); peer/expert citations `[TEAM INPUT]`.
 - [ ] **Round 2 Testing (Performance & Hardened Guardrails)**:

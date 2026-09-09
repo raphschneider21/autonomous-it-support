@@ -21,29 +21,51 @@
 
 ---
 
-## Decision 2: AI Model — Google Gemini 2.5 Flash (Free)
+## Decision 2: AI Model — Claude, one model chosen per agent (SUPERSEDES the Gemini decision)
 
-**Choice**: Google Gemini 2.5 Flash via the `google-genai` Python library
+**Choice**: Anthropic Claude via the `anthropic` Python SDK, with a different
+model per runtime agent.
 
-**Why**:
-- Free tier: 15 requests/minute, 1 million tokens/day — $0 cost
-- Fast responses (~0.3s for classification tasks)
-- Supports function calling / tool use for agent orchestration
-- Good enough quality for a PoC demo
-- No credit card required for the free tier
+**Why a mix rather than one model**: the four agents do genuinely different
+work. Sorting one user sentence into a category and reasoning from raw
+`journalctl` output to an unscripted root cause are not the same task, and
+pricing one for the other means either overpaying for the first or
+under-serving the second. Choosing per agent is also what the rubric's "argued
+model selection" asks for — an argument requires a choice to have been made.
 
-**Fallback**: If Gemini causes issues, switch to OpenAI GPT-4o-mini (~$0.01 for the entire demo).
+| Agent | Model | Max tokens | Thinking | Effort | Reasoning |
+|---|---|---|---|---|---|
+| Triage Agent | `claude-haiku-4-5` | 512 | off | n/a | One sentence into one of ten categories. Cheapest capable model; Haiku 4.5 does not accept `effort`, and thinking would add latency to a task that needs none. |
+| Diagnostic Agent | `claude-opus-5` | 2048 | adaptive | medium | Reads raw `journalctl`/`df`/`systemctl` output and reasons to a root cause nobody wrote a runbook for. The only genuinely hard judgement in the system. Effort held at medium so the 30-second budget survives. |
+| Security Agent | `claude-haiku-4-5` | 512 | off | n/a | Pattern recognition over the prompt and the diagnostic evidence. Runs concurrently with Diagnostic, so its latency is free in wall-clock terms. |
+| Incident Commander | `claude-sonnet-5` | 1024 | adaptive | low | Reconciles two structured assessments. Real judgement over a small, well-shaped input. |
 
-**Model assignments per agent**:
+Settings live in `src/engine/llm.py` (`AGENTS`), and `llm.model_table()` renders
+this table from the code, so the document cannot drift from what runs.
 
-| Agent | Model | Temperature | Max Tokens | Reasoning |
-|---|---|---|---|---|
-| Incident Commander | gemini-2.5-flash | 0.3 | 1024 | Needs structured, deterministic output |
-| Triage Agent | gemini-2.5-flash | 0.2 | 512 | Classification must be consistent |
-| Diagnostic Agent | gemini-2.5-flash | 0.1 | 1024 | Factual, read-only queries |
-| Security Agent | gemini-2.5-flash | 0.0 | 512 | Zero creativity, strict policy enforcement |
+**Why not Gemini 2.5 Flash** (the original decision): the free tier's 15
+requests/minute is 3.75 incidents/minute at four calls each, which is tight for
+a test-suite run and leaves no headroom during a recorded demo. The team has an
+Anthropic API key, and at roughly $0.03 per incident the whole project costs
+tens of francs — the constraint was never really cost.
 
-**API key management**: Stored in `.env` file (never committed to Git). `.env.example` committed as a template.
+**Why not a local model** (Ollama on the presenter's Mac): genuinely
+attractive — endpoint telemetry never leaves the machine, which is a real
+enterprise and GDPR argument, and it removes network dependency from a recorded
+demo. Rejected for the 30-second budget: four agents queue on one GPU, and an
+8B model needs roughly 15–20 seconds for the Diagnostic call alone. Worth
+revisiting as a measured Round 2 comparison.
+
+**Concurrency**: Triage runs first, then Diagnostic and Security in parallel,
+then the Commander. Sequential calls do not fit the budget; this shape does.
+
+**Every call has a declared fallback.** With no `ANTHROPIC_API_KEY` each agent
+uses a deterministic path (keyword classification, heuristic assessment,
+rule-based reconciliation) and the test suite runs unchanged. `_source` on every
+agent result records which path ran, so the TDD reports the split rather than
+assuming it.
+
+**API key management**: `.env`, never committed. `.env.example` is the template.
 
 ---
 
@@ -327,18 +349,27 @@ repeat incident in exchange for a complete, defensible audit trail.
 
 ---
 
-## Decision 14: Demo Determinism — Mock Triage & Executor (APPROVED)
+## Decision 14: Deterministic fallbacks, not mocks in place of the model (REVISED)
 
-**Choice**: The PoC runs `classify_from_mock` (deterministic word-based), and
-all OS commands go through a stateful `MockExecutor`
-(`src/executors/mock_executor.py`, `fixtures/mock_outputs.json`).
+**Choice**: The four agents call Claude (Decision 2). Each one also has a
+deterministic fallback — `classify_from_mock` for triage, a heuristic assessment
+for diagnosis, keyword indicators for security, and the rule-based
+`reconcile_assessments` for the Commander. The fallback runs when no
+`ANTHROPIC_API_KEY` is configured, when a call fails, or when a response is not
+usable. `MockExecutor` still stands in for OS commands during development and
+rehearsal.
 
-**Why**: Decision 2/6 already bound the team to mocks for development. For the
-graded live demo, 100% reproducible traces are mandatory (rubric #8/#9).
-Gemini (`gemini-2.5-flash`) is the documented production classification path
-(Decision 2) with per-agent temperature/token settings; the engine calls it
-through the same interface (`classify_from_mock` mirrors its signature), so
-swapping to the real model is a config change, not an architecture change.
+**Why the revision**: the earlier version of this decision described the mock
+classifier as the demo path and the model as a future config change. That
+reading is what left the project with no generative AI in it at all while the
+documentation described temperatures for calls that were never made. The
+fallback is a resilience path, not the primary one.
+
+**Why keep fallbacks at all**: the test suite must run without an API key, on
+CI and on a laptop that has none; and a model outage during a recorded demo
+should degrade the system rather than end it. `_source` on every agent result
+records which path ran, so the TDD reports the split as measured evidence
+rather than assuming it.
 
 ---
 
@@ -447,7 +478,7 @@ this change is isolated in its own commit and can be dropped independently.**
 | # | Decision | Choice |
 |---|---|---|
 | 1 | Language | Python 3.11+ |
-| 2 | AI Model | Google Gemini 2.5 Flash (Free) |
+| 2 | AI Model | Claude, one model chosen per agent (Haiku 4.5 / Opus 5 / Sonnet 5) |
 | 3 | Client UI | Local web app (browser) |
 | 4 | Communication | REST API (JSON) |
 | 5 | Database | SQLite (3 tables) |
@@ -459,7 +490,7 @@ this change is isolated in its own commit and can be dropped independently.**
 | 11 | API Keys | .env file, never committed |
 | 12 | Round 2 Optimization | Runbook-store cache (mtime-invalidated) + diagnostic dedup; evidence artifacts immutable |
 | 13 | Early-Exit Cache | REJECTED — would bypass per-incident audit trail |
-| 14 | Demo Determinism | Mock triage + MockExecutor; Gemini via Decision 2 for production |
+| 14 | Demo Determinism | MockExecutor for rehearsal; Claude per Decision 2, with declared deterministic fallbacks |
 | 15 | Contract Freeze | Frozen in docs/schema.md; sign-off pending |
 | 16 | Knowledge Stores | Per-platform runbook stores; `$RUNBOOK_STORE` selects |
 | 17 | Retrieval | Deterministic IDF matching + abstention; no LLM call |

@@ -60,7 +60,7 @@ Ethical considerations are covered in Section 6 / rubric category 10.
 > **[TEAM INPUT]** PoC determinism: current `TriageAgent` uses a mock
 > classifier (`classify_from_mock`) for 100% demo reliability (rule: minimal,
 > reliable infrastructure, `docs/roadmap.md`). If the graded TDD demands LLM
-> temperature/token settings, document the intended Gemini/Vertex parameters
+> per-agent model settings, document the Claude parameters in `src/engine/llm.py`
 > here. We will not fabricate settings that the running PoC does not use.
 
 ### 2b. Tools & integration
@@ -148,7 +148,7 @@ Raw: `data/benchmarks/round1.json` / `round2.json`; narrative:
 `tests/demo_rehearsal.py`.
 
 > **[TEAM INPUT]** If the graded rubric requires token/API-cost figures,
-> either (a) capture representative Gemini/Vertex trials, or (b) argue the
+> either (a) capture representative Claude trials with real token counts, or (b) argue the
 > mock-executor equivalence explicitly in this section.
 
 ---

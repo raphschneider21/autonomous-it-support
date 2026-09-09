@@ -90,7 +90,7 @@ store into `runbooks` at startup (ADR 12 → Milestone store parity).
   incident runs security check → triage → diagnostics → disagreement → match.
   Audit evidence intact.
 - **ADR 14**: engine uses `classify_from_mock` + `MockExecutor` only;
-  `RealExecutor` and Google Gemini are referenced solely in their own tests /
+  `RealExecutor` and the Claude client are referenced solely in their own tests /
   `docs/` (no live model calls). Demo stays deterministic.
 - **ADR 15**: this pass is the pre-freeze gate; open sign-offs remain for
   Dev2 (RunbookSchema) and Dev3 (DiagnosticEvent + EscalationTicket).
