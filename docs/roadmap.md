@@ -36,11 +36,12 @@
 
 ## Milestone 1: Interface Contracts (`docs/schema.md`)
 *Goal: Freeze data contracts so all three developers can build their subsystems independently.*
-- [ ] `@All` Review and freeze `RunbookSchema` (YAML/JSON)
-- [ ] `@All` Review and freeze `DiagnosticEvent` stream schema (Engine -> UI)
-- [ ] `@All` Review and freeze `EscalationTicket` schema (Engine -> ServiceNow/Jira)
-- [ ] `@All` Review and freeze `IncidentReport` schema (Markdown generator)
-- [ ] `@All` Freeze SQLite schema for incident records, audit trails, and execution metrics
+- [x] `@All` Draft contract freeze in `docs/schema.md` (v0.1) with per-schema sign-off trackers
+- [ ] `@All` Review and freeze `RunbookSchema` (YAML/JSON) — drafted, needs `@Dev2` sign-off
+- [ ] `@All` Review and freeze `DiagnosticEvent` stream schema (Engine -> UI) — drafted, needs `@Dev3` sign-off
+- [x] `@All` Document `EscalationTicket` schema (Engine -> ServiceNow/Jira) — implemented + documented
+- [x] `@All` Document `IncidentReport` schema (Markdown generator) — implemented + documented
+- [x] `@All` Document SQLite schema for incident records, audit trails, and execution metrics — implemented + documented
 
 ---
 
