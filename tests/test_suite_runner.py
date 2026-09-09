@@ -47,9 +47,11 @@ def run_round1(round_num: int = 1, write: bool = True) -> dict:
     so the same harness can produce both the Before (Round 1) and After
     (Round 2+) benchmark artifacts for the TDD efficiency comparison.
 
-    `write=False` runs the suite and returns the report without touching the
-    artifacts on disk. The pytest wrapper uses this so a test run can never
-    clobber a previously recorded benchmark round.
+    `write=False` runs the suite and returns the report without modifying an
+    existing artifact on disk (a missing artifact is still bootstrapped on first
+    run). The pytest wrapper uses this so a test run can never clobber a
+    recorded benchmark round. CLI re-measurement of an existing round requires
+    an explicit `--force`.
     """
     init_db()
 
@@ -115,6 +117,8 @@ def run_round1(round_num: int = 1, write: bool = True) -> dict:
     if write or not os.path.exists(out):
         with open(out, "w") as f:
             json.dump(report, f, indent=2)
+    else:
+        print(f"Note: {out} already exists — not overwriting (pass --force to re-measure).")
     return report
 
 
@@ -139,9 +143,11 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run the benchmark suite and write data/benchmarks/roundN.json")
     parser.add_argument("--round", type=int, default=1, help="Round number for the output artifact")
+    parser.add_argument("--force", action="store_true",
+                        help="Overwrite an existing round artifact (default: leave recorded evidence untouched)")
     args = parser.parse_args()
 
-    rep = run_round1(round_num=args.round)
+    rep = run_round1(round_num=args.round, write=args.force)
     print_table(rep)
 
 

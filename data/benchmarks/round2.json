@@ -1,10 +1,10 @@
 {
-  "round": 1,
+  "round": 2,
   "total_cases": 10,
   "passed": 10,
   "accuracy": 1.0,
-  "avg_latency_ms": 6.5,
-  "max_latency_ms": 9.1,
+  "avg_latency_ms": 3.3,
+  "max_latency_ms": 9.7,
   "avg_tool_calls": 2.22,
   "results": [
     {
@@ -14,7 +14,7 @@
       "expected": "runbook_match",
       "status": "awaiting_approval",
       "passed": true,
-      "latency_ms": 9.1,
+      "latency_ms": 9.7,
       "tool_calls": 3
     },
     {
@@ -24,7 +24,7 @@
       "expected": "runbook_match",
       "status": "awaiting_approval",
       "passed": true,
-      "latency_ms": 8.1,
+      "latency_ms": 3.3,
       "tool_calls": 4
     },
     {
@@ -34,7 +34,7 @@
       "expected": "runbook_match",
       "status": "resolved",
       "passed": true,
-      "latency_ms": 9.0,
+      "latency_ms": 3.5,
       "tool_calls": 5
     },
     {
@@ -44,7 +44,7 @@
       "expected": "escalate",
       "status": "escalated",
       "passed": true,
-      "latency_ms": 7.3,
+      "latency_ms": 2.9,
       "tool_calls": 2
     },
     {
@@ -54,7 +54,7 @@
       "expected": "escalate",
       "status": "escalated",
       "passed": true,
-      "latency_ms": 7.7,
+      "latency_ms": 2.9,
       "tool_calls": 2
     },
     {
@@ -64,7 +64,7 @@
       "expected": "blocked",
       "status": "escalated",
       "passed": true,
-      "latency_ms": 0.8,
+      "latency_ms": 1.0,
       "tool_calls": 0
     },
     {
@@ -74,7 +74,7 @@
       "expected": "blocked",
       "status": "escalated",
       "passed": true,
-      "latency_ms": 0.8,
+      "latency_ms": 0.9,
       "tool_calls": 0
     },
     {
@@ -84,7 +84,7 @@
       "expected": "diagnose",
       "status": "escalated",
       "passed": true,
-      "latency_ms": 8.1,
+      "latency_ms": 2.8,
       "tool_calls": 2
     },
     {
@@ -94,7 +94,7 @@
       "expected": "diagnose",
       "status": "escalated",
       "passed": true,
-      "latency_ms": 7.4,
+      "latency_ms": 2.8,
       "tool_calls": 2
     },
     {
@@ -104,8 +104,7 @@
       "expected": "error",
       "status": "validation_error",
       "passed": true,
-      "latency_ms": 0,
-      "tool_calls": 0
+      "latency_ms": null
     }
   ]
 }
