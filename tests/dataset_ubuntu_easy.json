@@ -1,7 +1,7 @@
 {
   "dataset_version": "1.0",
   "os": "ubuntu",
-  "purpose": "Training corpus: really easy everyday problems on an Ubuntu laptop that an expert human can fix in 30 seconds or less with a single command or quick setting change. Every case is fully resolvable by the agent on its own (expected = resolve).",
+  "purpose": "Training corpus: really easy everyday problems on an Ubuntu laptop that an expert human can fix in 30 seconds or less with a single command or quick setting change. Most cases are fully resolvable by the agent on its own (expected = resolve); a few complex cases (expected = escalate) teach the agent what it must hand over to a senior technician when the problem is way beyond a 30-second fix.",
   "test_cases": [
     {
       "id": "UB-001",
@@ -392,6 +392,42 @@
         "udisksctl mount -b /dev/sdX1"
       ],
       "description": "Find and mount the device"
+    },
+    {
+      "id": "UB-031",
+      "category": "boot",
+      "prompt": "It will not boot anymore, just shows 'grub rescue >' after a Windows update",
+      "expected": "escalate",
+      "tier": "red",
+      "cause": "The GRUB bootloader is broken (Windows update overwrote the boot partition or the bootloader files are damaged).",
+      "solution_steps": [
+        "Not a 30-second fix. Requires a live USB boot, chroot into the installed system, reinstall GRUB via grub-install and update-grub, then restore the boot order."
+      ],
+      "description": "Bootloader recovery - needs a live USB and senior technician"
+    },
+    {
+      "id": "UB-032",
+      "category": "graphics",
+      "prompt": "Black screen right after logging in since the Nvidia driver update; Secure Boot is on",
+      "expected": "escalate",
+      "tier": "red",
+      "cause": "The new Nvidia driver module is not signed for Secure Boot, or the driver and X/Wayland configuration are mismatched after the update.",
+      "solution_steps": [
+        "Not a 30-second fix. Requires booting with a nomodeset kernel parameter, purging and reinstalling the Nvidia driver (dkms rebuild), enrolling the module key via mokutil/EFI, and validating the graphics session."
+      ],
+      "description": "Graphics driver + Secure Boot conflict - deep system recovery"
+    },
+    {
+      "id": "UB-033",
+      "category": "upgrade",
+      "prompt": "The distro upgrade from 22.04 to 24.04 was interrupted and now everything is broken - apps crash, 'cannot open shared library' errors",
+      "expected": "escalate",
+      "tier": "red",
+      "cause": "A partial distro upgrade left the system in an inconsistent state (mixed package versions and broken library dependencies).",
+      "solution_steps": [
+        "Not a 30-second fix. Needs careful package resolution (dpkg --configure -a, apt --fix-broken, sometimes removing/reinstalling key libs), a backup of user data, and possibly a clean reinstall if the upgrade cannot be finished reliably."
+      ],
+      "description": "Interrupted major upgrade - risky to repair, senior tech decision"
     }
   ]
 }
