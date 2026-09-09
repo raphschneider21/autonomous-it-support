@@ -84,48 +84,45 @@ def _create(client, prompt):
     return body["incident_id"]
 
 
-def test_print_spooler_full_lifecycle_through_api(client):
-    """Create -> triage -> approval gate -> approve -> verify -> resolve -> report."""
+def test_print_queue_full_lifecycle_through_api(client):
+    """Create -> triage -> diagnose -> remediate -> verify -> resolve -> report.
+
+    There is no approval gate any more: the user consents once before the run,
+    and Green/Yellow actions execute inside that window. The run therefore
+    reaches a terminal state in a single call.
+    """
     incident_id = _create(client, SPOOLER_PROMPT)
 
-    # Phase 1: engine runs in the background; stream ends in awaiting_approval
     frames = _consume_stream(client, incident_id)
     messages = [f["data"].get("message", "") for f in frames]
 
     assert any("Runbook found" in m for m in messages), messages
-    assert any("Awaiting approval" in m for m in messages), messages
+    assert any("Executed:" in m for m in messages), messages
+    assert not any("Awaiting approval" in m for m in messages), messages
 
     done = frames[-1]["data"]
-    assert done["status"] == "awaiting_approval"
-    assert done["runbook_id"] == "RB-PRINT-001"
-    pending = done["pending_command"]
-    assert pending == "Stop-Service -Name spooler -Force"
+    assert done["status"] in {"resolved", "escalated"}
+    assert done["runbook_id"] == "RB-CUPS-001"
 
-    # Phase 2: human approves; remaining steps resume and verification runs
-    resp = client.post(f"/api/incidents/{incident_id}/approve", json={"command": pending})
-    assert resp.status_code == 200, resp.text
-    approval = resp.json()
-    assert approval["status"] == "resolved"
-    assert any("Verification passed" in e["message"] for e in approval["events"])
-    assert any("Executed: Remove-Item" in e["message"] for e in approval["events"])
-    assert any("Executed: Start-Service" in e["message"] for e in approval["events"])
+    # The run is already terminal — no second call, no human step in between.
+    assert done["status"] == "resolved", done
 
-    # Phase 3: SSE stream carries the final resolved state
+    # SSE stream carries the same final state on replay
     frames = _consume_stream(client, incident_id)
     assert frames[-1]["data"]["status"] == "resolved"
 
-    # Phase 4: persisted record + audit trail + dual documentation (report)
+    # Persisted record + audit trail + dual documentation
     detail = client.get(f"/api/incidents/{incident_id}").json()
     incident = detail["incident"]
     assert incident["status"] == "resolved"
-    assert incident["runbook_id"] == "RB-PRINT-001"
+    assert incident["runbook_id"] == "RB-CUPS-001"
 
     audit = detail["audit_log"]
-    assert any(e["action_type"] == "approval" for e in audit)
+    assert any(e["action_type"] == "remediation" for e in audit)
     assert any(e["action_type"] == "verification" for e in audit)
     assert any(e["action_type"] == "metrics" for e in audit)
 
-    report_path = approval["report_path"]
+    report_path = done["report_path"]
     assert report_path and os.path.exists(report_path)
     with open(report_path) as f:
         report = f.read()
@@ -175,25 +172,24 @@ def test_empty_prompt_rejected_with_422(client):
     assert resp.status_code == 422
 
 
-def test_red_command_blocked_at_approval_gate_through_api(client):
+def test_denied_command_is_never_executed_through_api(client):
+    """A runbook step the allowlist refuses is audited but never run.
+
+    Replaces the old approval-gate test: the gate is gone, so the property that
+    matters is that refusal happens without a human in the loop at all.
+    """
+    from src.safety.safety_validator import classify
+
+    assert not classify("useradd evil").allowed
+
     incident_id = _create(client, SPOOLER_PROMPT)
+    _consume_stream(client, incident_id)
 
-    frames = _consume_stream(client, incident_id)
-    pending = frames[-1]["data"]["pending_command"]
-
-    resp = client.post(f"/api/incidents/{incident_id}/approve", json={"command": "net user evil /add"})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["status"] == "blocked"
-    assert any("BLOCKED" in e["message"] for e in body["events"])
-
-    incident = client.get(f"/api/incidents/{incident_id}").json()["incident"]
-    assert incident["status"] != "resolved"
-    # The block itself is audited (evidence), but the command was never executed
     audit = client.get(f"/api/incidents/{incident_id}").json()["audit_log"]
-    assert any(e["action_type"] == "blocked" and "net user" in (e.get("command_executed") or "") for e in audit)
-    assert not any(e["action_type"] in ("remediation", "approval") and "net user" in (e.get("command_executed") or "") for e in audit)
-
+    executed = [e.get("command_executed") or "" for e in audit
+                if e["action_type"] in ("remediation", "diagnosis", "verification")]
+    for command in executed:
+        assert classify(command).allowed, f"executed a denied command: {command!r}"
 
 def test_multi_agent_disagreement_reconciled_through_api(client):
     """Milestone 3 / live-demo segment 3: Diagnostic vs Security debate.

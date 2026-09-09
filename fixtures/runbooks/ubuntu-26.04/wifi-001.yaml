@@ -25,16 +25,21 @@ trigger_signatures:
   process_names: []
 remediation_steps:
 - step: 1
-  description: Bounce the wireless radio to restore the link immediately
-  command: nmcli radio wifi off; nmcli radio wifi on
+  description: Switch the wireless radio off
+  command: nmcli radio wifi off
   elevation_required: false
-  timeout_seconds: 20
+  timeout_seconds: 10
 - step: 2
+  description: Switch the wireless radio back on to restore the link
+  command: nmcli radio wifi on
+  elevation_required: false
+  timeout_seconds: 10
+- step: 3
   description: Disable Wi-Fi power saving so the adapter stops sleeping under light traffic
   command: sudo sed -i 's/wifi.powersave = 3/wifi.powersave = 2/' /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
   elevation_required: true
   timeout_seconds: 10
-- step: 3
+- step: 4
   description: Restart NetworkManager to apply the power-saving policy
   command: sudo systemctl restart NetworkManager
   elevation_required: true

@@ -12,6 +12,7 @@ are asserted here rather than left to review.
 
 Unlike `test_ubuntu_knowledge_base.py`, this runs over **every** store.
 """
+import pathlib
 import re
 
 import pytest
@@ -22,7 +23,10 @@ from src.knowledge.runbook_parser import (
     load_all_runbooks,
 )
 
-STORES = [DEFAULT_STORE, UBUNTU_STORE]
+# Ubuntu is the only shipped store; the Windows fixtures were removed when the
+# project narrowed to a Linux endpoint. Store-switching is still exercised
+# below against a synthetic legacy store.
+STORES = [UBUNTU_STORE]
 
 TARGET_OS_DIALECT = {
     "windows_11": "windows",
@@ -121,7 +125,50 @@ def test_runbook_ids_are_unique_across_all_stores():
 
 # --- Store switching (Milestone 6 cutover) ---------------------------------
 
-def test_switching_stores_replaces_the_database_view(tmp_path, monkeypatch):
+LEGACY_RUNBOOK = """
+schema_version: "1.0"
+runbook_id: "RB-LEGACY-001"
+title: "Synthetic legacy runbook"
+target_os: "windows_11"
+tags: ["legacy"]
+trigger_signatures:
+  error_codes: []
+  process_names: []
+  symptoms: ["legacy store placeholder"]
+remediation_steps:
+- step: 1
+  description: "Placeholder"
+  command: "Get-Service spooler"
+  elevation_required: false
+  timeout_seconds: 5
+"""
+
+
+@pytest.fixture
+def legacy_store(tmp_path, monkeypatch):
+    """A synthetic 'default' store to switch away from.
+
+    The real Windows fixtures were deleted when the project committed to a
+    Linux endpoint, but the cutover invariants they used to exercise still
+    matter: a store switch must replace the database view, and it must not
+    orphan a runbook an incident already cites.
+    """
+    import src.knowledge.runbook_parser as parser
+
+    real_dir = pathlib.Path(parser.RUNBOOKS_DIR).resolve()
+    legacy_dir = tmp_path / "legacy"
+    legacy_dir.mkdir()
+    (legacy_dir / "legacy-001.yaml").write_text(LEGACY_RUNBOOK)
+    # store_dir() joins sub-stores onto RUNBOOKS_DIR, so the real Ubuntu store
+    # has to stay reachable from the temporary root.
+    (legacy_dir / parser.UBUNTU_STORE).symlink_to(real_dir / parser.UBUNTU_STORE)
+    monkeypatch.setattr(parser, "RUNBOOKS_DIR", str(legacy_dir))
+    parser.clear_cache()
+    yield DEFAULT_STORE
+    parser.clear_cache()
+
+
+def test_switching_stores_replaces_the_database_view(tmp_path, monkeypatch, legacy_store):
     """After a store switch, GET /api/runbooks must not advertise the old store.
 
     The database persists across restarts, so seeding is additive by default:
@@ -134,7 +181,7 @@ def test_switching_stores_replaces_the_database_view(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "t.db"))
     db.init_db()
 
-    assert seed_runbooks_db(DEFAULT_STORE) == 3
+    assert seed_runbooks_db(legacy_store) == 1
     assert {r["target_os"] for r in db.get_all_runbooks()} == {"windows_11"}
 
     assert seed_runbooks_db(UBUNTU_STORE) == 30
@@ -143,7 +190,7 @@ def test_switching_stores_replaces_the_database_view(tmp_path, monkeypatch):
     assert len(seeded) == 30
 
 
-def test_pruning_keeps_runbooks_still_cited_by_an_incident(tmp_path, monkeypatch):
+def test_pruning_keeps_runbooks_still_cited_by_an_incident(tmp_path, monkeypatch, legacy_store):
     """An incident's runbook link is audit evidence and must survive a switch."""
     import src.database as db
     from src.knowledge.runbook_parser import seed_runbooks_db
@@ -151,12 +198,12 @@ def test_pruning_keeps_runbooks_still_cited_by_an_incident(tmp_path, monkeypatch
     monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "t.db"))
     db.init_db()
 
-    seed_runbooks_db(DEFAULT_STORE)
-    db.insert_incident("INC-HISTORY", "print job stuck")
-    db.update_incident("INC-HISTORY", status="resolved", runbook_id="RB-PRINT-001")
+    seed_runbooks_db(legacy_store)
+    db.insert_incident("INC-HISTORY", "legacy issue")
+    db.update_incident("INC-HISTORY", status="resolved", runbook_id="RB-LEGACY-001")
 
     seed_runbooks_db(UBUNTU_STORE)
 
     remaining = {r["id"] for r in db.get_all_runbooks()}
-    assert "RB-PRINT-001" in remaining, "resolved incident lost its runbook link"
-    assert "RB-VPN-001" not in remaining, "unreferenced stale runbook was not pruned"
+    assert "RB-LEGACY-001" in remaining, "resolved incident lost its runbook link"
+    assert "RB-WIFI-001" in remaining, "new store was not seeded"

@@ -21,7 +21,10 @@ BENCHMARK_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data",
 
 def _expected_statuses(expected: str) -> set:
     mapping = {
-        "runbook_match": {"awaiting_approval", "resolved"},
+        # No per-action approval any more: a matched runbook runs to
+        # completion inside the user's consent window, so it either resolves or
+        # escalates when verification fails.
+        "runbook_match": {"resolved", "escalated"},
         "escalate": {"escalated"},
         "blocked": {"escalated"},
         "diagnose": {"escalated"},

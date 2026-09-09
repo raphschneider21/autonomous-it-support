@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from .models import IncidentCreate
 from .database import init_db, get_incident, get_audit_log, get_all_runbooks
 from .knowledge.runbook_parser import seed_runbooks_db
-from .engine.incident_commander import run_incident, approve_action
+from .engine.incident_commander import run_incident
 from .engine.event_stream import store
 
 app = FastAPI(title="Autonomous IT Support Agent")
@@ -69,15 +69,6 @@ def get_incident_detail(incident_id: str):
         raise HTTPException(status_code=404, detail="Incident not found")
     audit = get_audit_log(incident_id)
     return {"incident": incident, "audit_log": audit}
-
-
-@app.post("/api/incidents/{incident_id}/approve")
-def approve_incident_action(incident_id: str, body: dict):
-    command = body.get("command")
-    if not command:
-        raise HTTPException(status_code=400, detail="Command required")
-    result = approve_action(incident_id, command)
-    return result
 
 
 @app.get("/api/runbooks")

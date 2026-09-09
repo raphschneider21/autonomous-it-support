@@ -8,7 +8,7 @@ from src.knowledge.runbook_parser import load_all_runbooks, load_runbook
 
 def test_loads_all_runbooks():
     runbooks = load_all_runbooks()
-    assert len(runbooks) == 3
+    assert len(runbooks) == 30
 
 
 def test_runbook_has_required_fields():

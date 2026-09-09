@@ -1,69 +1,87 @@
+"""Triage Agent — classifies a reported problem into a category and severity.
+
+Claude does the classification. The keyword ladder below is kept as a declared
+fallback for when no API key is configured or a call fails: it is a demoted
+path, not the primary one, and `_source` on the returned dict records which ran
+so the TDD can report how often each was used.
+
+Categories are aligned with the Ubuntu 26.04 runbook store so triage and
+retrieval agree on vocabulary.
+"""
 import json
-from datetime import datetime
-from ..models import AgentMessage, SafetyTier
-from ..safety.safety_validator import validate_command, is_allowed
+
+from . import llm
+
+CATEGORIES = llm.CATEGORIES
+
+# Fallback keyword table. Ordered: the first category with a hit wins, so more
+# specific vocabularies come before broader ones.
+_KEYWORDS = [
+    ("printing", ["print", "printer", "cups", "lpstat", "print queue", "spooler"]),
+    ("audio", ["sound", "audio", "speaker", "microphone", "mic", "headphone",
+               "volume", "muted", "pipewire", "pulseaudio"]),
+    ("display", ["screen", "display", "monitor", "resolution", "brightness",
+                 "external monitor", "hdmi", "flicker"]),
+    ("packages", ["apt", "package", "install", "update", "upgrade", "dpkg",
+                  "broken package", "software centre", "software center"]),
+    ("time", ["clock", "time", "timezone", "date is wrong", "ntp", "behind"]),
+    ("input", ["keyboard", "touchpad", "trackpad", "mouse", "layout", "typing"]),
+    ("desktop", ["gnome", "desktop", "frozen", "hangs", "unresponsive",
+                 "shell", "session", "log in", "login screen"]),
+    ("disk", ["disk", "space", "full", "storage", "no space", "usb", "drive",
+              "mount", "filesystem", "read-only"]),
+    ("network", ["wifi", "wi-fi", "wireless", "internet", "network", "dns",
+                 "resolve", "connection", "offline", "bluetooth", "ethernet"]),
+]
+
+_HIGH_SEVERITY = {"network", "disk"}
 
 
-TRIAGE_PROMPT = """You are a Triage Agent for an enterprise IT support system.
-Classify the user's issue into ONE category and severity level.
+def classify(user_prompt: str) -> dict:
+    """Classify an incident. Claude first, keyword ladder as declared fallback."""
+    if user_prompt and user_prompt.strip():
+        result = llm.call_agent(
+            "TriageAgent",
+            f"User-reported problem:\n{llm.wrap_evidence('user-report', user_prompt)}",
+            expect_keys=("category", "severity"),
+        )
+        if result and result.get("category") in CATEGORIES:
+            result.setdefault("symptoms", [user_prompt])
+            result.setdefault("reasoning", "")
+            return result
 
-Categories: network, printer, office, legacy, frozen
-Severity: low, medium, high, critical
-
-Respond with ONLY a JSON object:
-{"category": "...", "severity": "...", "symptoms": ["..."], "reasoning": "..."}"""
-
-
-def classify_incident(user_prompt: str, mock_response: str = None) -> dict:
-    if mock_response:
-        try:
-            return json.loads(mock_response)
-        except json.JSONDecodeError:
-            pass
-
-    return {
-        "category": "unknown",
-        "severity": "medium",
-        "symptoms": [user_prompt],
-        "reasoning": "Unable to classify automatically. Manual review recommended.",
-    }
+    fallback = classify_from_mock(user_prompt)
+    fallback["_source"] = "keyword-fallback"
+    return fallback
 
 
 def classify_from_mock(user_prompt: str) -> dict:
-    prompt_lower = user_prompt.lower()
+    """Deterministic keyword classifier — the fallback path.
 
-    if any(w in prompt_lower for w in ["printer", "print", "spooler", "queue", "document"]):
+    Named `_from_mock` historically, when it was the only path. Kept under that
+    name because the demo dry-run and the offline test suite call it directly.
+    """
+    if not user_prompt or not user_prompt.strip():
         return {
-            "category": "printer",
+            "category": "unknown",
             "severity": "medium",
-            "symptoms": ["Print job stuck", "Printer not responding"],
-            "reasoning": "User mentions printer-related keywords. Classified as printer issue.",
+            "symptoms": [],
+            "reasoning": "Empty report. Nothing to classify; escalating for human triage.",
         }
-    if any(w in prompt_lower for w in ["vpn", "network", "internet", "dns", "connect"]):
-        return {
-            "category": "network",
-            "severity": "high",
-            "symptoms": ["Network connectivity issue", "VPN failure"],
-            "reasoning": "User mentions network/VPN keywords. Classified as network issue.",
-        }
-    if any(w in prompt_lower for w in ["teams", "outlook", "office", "email", "crash"]):
-        return {
-            "category": "office",
-            "severity": "medium",
-            "symptoms": ["Application crash", "Office suite failure"],
-            "reasoning": "User mentions Office/collaboration app keywords.",
-        }
-    if any(w in prompt_lower for w in ["slow", "frozen", "hang", "stuck", "cpu", "memory"]):
-        return {
-            "category": "frozen",
-            "severity": "high",
-            "symptoms": ["Unresponsive process", "High resource usage"],
-            "reasoning": "User mentions performance/freeze keywords.",
-        }
+
+    lowered = user_prompt.lower()
+    for category, words in _KEYWORDS:
+        if any(word in lowered for word in words):
+            return {
+                "category": category,
+                "severity": "high" if category in _HIGH_SEVERITY else "medium",
+                "symptoms": [user_prompt.strip()],
+                "reasoning": f"Report mentions {category} vocabulary.",
+            }
 
     return {
         "category": "unknown",
         "severity": "medium",
-        "symptoms": [user_prompt],
-        "reasoning": "Could not auto-classify. Defaulting to medium severity.",
+        "symptoms": [user_prompt.strip()],
+        "reasoning": "No category vocabulary matched. Escalating rather than guessing.",
     }

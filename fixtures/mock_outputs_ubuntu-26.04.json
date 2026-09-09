@@ -4,9 +4,14 @@
     "stdout": "connected",
     "stderr": ""
   },
-  "nmcli radio wifi off; nmcli radio wifi on": {
+  "nmcli radio wifi off": {
     "exit_code": 0,
-    "stdout": "[MOCK] Wireless radio cycled off and back on.",
+    "stdout": "[MOCK] Wireless radio switched off.",
+    "stderr": ""
+  },
+  "nmcli radio wifi on": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Wireless radio switched on. Reconnecting to known networks.",
     "stderr": ""
   },
   "cat /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf": {

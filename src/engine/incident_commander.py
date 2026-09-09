@@ -2,12 +2,14 @@ import json
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from ..models import IncidentStatus, SafetyTier
 from ..database import insert_incident, update_incident, get_incident, insert_audit
-from .triage_agent import classify_from_mock
+from .triage_agent import classify
 from .diagnostic_agent import diagnose, assess as diagnostic_assess
 from .security_agent import check_action, detect_prompt_injection, assess_prompt
+from . import llm
 from .disagreement import reconcile_assessments
 from .event_stream import store
 from ..knowledge.runbook_matcher import match_runbook
@@ -54,7 +56,7 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
 
     # Step 2: Triage
     update_incident(incident_id, status="diagnosing")
-    classification = classify_from_mock(user_prompt)
+    classification = classify(user_prompt)
     update_incident(incident_id, category=classification["category"], severity=classification["severity"])
     _log(incident_id, "TriageAgent", "classification", "green", None, json.dumps(classification))
     _push(incident_id, events, {"agent": "TriageAgent", "message": f"Classified as {classification['category']} ({classification['severity']} severity).", "tier": "green"})
@@ -66,14 +68,32 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
         _log(incident_id, "DiagnosticAgent", "diagnosis", d["safety_tier"], d["command"], d["stdout"])
         _push(incident_id, events, {"agent": "DiagnosticAgent", "message": f"Ran: {d['command']}", "tier": d["safety_tier"]})
 
-    # Step 3b: Cross-agent disagreement resolution
-    diag_assessment = diagnostic_assess(diagnostics, classification["category"])
-    sec_assessment = assess_prompt(user_prompt)
+    # Step 3b: Diagnostic and Security assess concurrently.
+    #
+    # These are the two independent readings of the same incident, and running
+    # them in parallel is what keeps four model calls inside the 30-second
+    # budget: the cheap Security call overlaps the expensive Diagnostic one
+    # instead of queueing behind it. Security also sees the diagnostic output,
+    # so it can catch instruction-shaped text planted in a log file.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        diag_future = pool.submit(diagnostic_assess, diagnostics, classification["category"])
+        sec_future = pool.submit(assess_prompt, user_prompt, diagnostics)
+        diag_assessment = diag_future.result()
+        sec_assessment = sec_future.result()
+
+    if sec_assessment.get("injection_attempt") or diag_assessment.get("injection_observed"):
+        _log(incident_id, "SecurityAgent", "blocked", "red", None,
+             "Instruction-shaped text found in command output (indirect injection).")
+        _push(incident_id, events, {
+            "agent": "SecurityAgent",
+            "message": "ALERT: instruction-shaped text found in command output. Treated as data and reported, not followed.",
+            "tier": "red",
+        })
 
     if not sec_assessment.get("security_flagged"):
         sec_assessment["root_cause"] = diag_assessment["root_cause"]
 
-    reconciliation = reconcile_assessments(diag_assessment, sec_assessment)
+    reconciliation = _reconcile(diag_assessment, sec_assessment)
 
     if reconciliation.get("disagreement"):
         _log(incident_id, "IncidentCommander", "disagreement", "yellow", None, reconciliation["detail"])
@@ -109,19 +129,15 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
                 _push(incident_id, events, {"agent": "SecurityAgent", "message": f"BLOCKED: {cmd} — {approval['reason']}", "tier": "red"})
                 continue
 
-            if approval.get("requires_approval"):
-                _log(incident_id, "IncidentCommander", "awaiting_approval", "yellow", cmd, approval["reason"])
-                _push(incident_id, events, {"agent": "IncidentCommander", "message": f"Awaiting approval: {step.get('description', cmd)}", "tier": "yellow", "awaiting": True, "command": cmd})
-                update_incident(incident_id, status="awaiting_approval", runbook_id=runbook.get("runbook_id"))
-                metrics = _log_metrics(incident_id, "awaiting_approval", start, tool_calls)
-                result = {"status": "awaiting_approval", "events": events, "runbook_id": runbook.get("runbook_id"), "pending_command": cmd, "metrics": metrics}
-                store.set_result(incident_id, result)
-                return result
-
+            # No second consent. The user consented once, before the run
+            # started; a Yellow action executes inside that window. The
+            # boundary is enforced by the allowlist, not by a modal the user
+            # would click through anyway — anything it does not recognise is
+            # RED above and escalates instead of running.
             output = executor.run(cmd)
             tool_calls += 1
-            _log(incident_id, "DiagnosticAgent", "remediation", "yellow", cmd, output["stdout"])
-            _push(incident_id, events, {"agent": "DiagnosticAgent", "message": f"Executed: {cmd}", "tier": "yellow"})
+            _log(incident_id, "DiagnosticAgent", "remediation", approval["safety_tier"], cmd, output["stdout"])
+            _push(incident_id, events, {"agent": "DiagnosticAgent", "message": f"Executed: {cmd}", "tier": approval["safety_tier"]})
 
         return _finalize_runbook(incident_id, runbook, events, start, tool_calls)
 
@@ -138,56 +154,46 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
 
 
 def approve_action(incident_id: str, command: str) -> dict:
-    start = time.perf_counter()
-    tool_calls = 0
+    """Removed. Kept as an explicit error so a stale client fails loudly.
 
-    approval = check_action(command)
+    The confirmed safety model is a single up-front consent: the user agrees
+    once, before the run, and Green and Yellow actions execute inside that
+    window. Anything the allowlist does not recognise is denied and escalated
+    rather than offered for approval, so there is nothing left for a per-action
+    modal to decide.
+    """
+    raise NotImplementedError(
+        "Per-action approval was removed with the single-consent safety model. "
+        "Incidents run to completion (resolved or escalated) in one call."
+    )
 
-    if not approval["allowed"]:
-        _log(incident_id, "SecurityAgent", "blocked", "red", command, approval["reason"])
-        metrics = _log_metrics(incident_id, "blocked", start, tool_calls)
-        ev = {"agent": "SecurityAgent", "message": f"BLOCKED: {command} — {approval['reason']}", "tier": "red"}
-        _emit(incident_id, ev)
-        return {
-            "status": "blocked",
-            "events": [ev],
-            "metrics": metrics,
-        }
 
-    _log(incident_id, "DiagnosticAgent", "approval", "yellow", command, "User approved execution")
-    output = executor.run(command)
-    tool_calls += 1
-    _log(incident_id, "DiagnosticAgent", "remediation", "yellow", command, output["stdout"])
+def _reconcile(diag_assessment: dict, sec_assessment: dict) -> dict:
+    """Reconcile the two readings. Commander model first, rule-based fallback.
 
-    events = [
-        {"agent": "DiagnosticAgent", "message": f"Executed approved command: {command}", "tier": "yellow"},
-    ]
-    _emit(incident_id, events[-1])
+    The deterministic rule ("a security root cause wins") is a reasonable
+    default but it is not reasoning — it reaches the same verdict regardless of
+    how strong either side's evidence is. The Commander model weighs the actual
+    evidence; the rule remains as the declared fallback.
+    """
+    verdict = llm.call_agent(
+        "IncidentCommander",
+        "DiagnosticAgent assessment:\n" + json.dumps(diag_assessment, default=str)
+        + "\n\nSecurityAgent assessment:\n" + json.dumps(sec_assessment, default=str),
+        expect_keys=("decision", "disagreement"),
+    )
+    if verdict:
+        verdict.setdefault("reconciled_by", "IncidentCommander")
+        verdict.setdefault("detail", "")
+        verdict["competing_hypotheses"] = [
+            {"agent": "DiagnosticAgent", "hypothesis": diag_assessment.get("root_cause"),
+             "evidence": diag_assessment.get("evidence")},
+            {"agent": "SecurityAgent", "hypothesis": sec_assessment.get("root_cause"),
+             "evidence": sec_assessment.get("evidence")},
+        ]
+        return verdict
 
-    incident = get_incident(incident_id)
-    runbook_id = incident.get("runbook_id")
-    runbook = _find_runbook(runbook_id) if runbook_id else None
-    if runbook:
-        steps = runbook.get("remediation_steps", [])
-        approved_idx = _step_index(steps, command)
-        remaining = steps[approved_idx + 1:] if approved_idx is not None else []
-        for step in remaining:
-            cmd = step.get("command", "")
-            step_approval = check_action(cmd)
-            if not step_approval["allowed"]:
-                _log(incident_id, "SecurityAgent", "blocked", "red", cmd, step_approval["reason"])
-                _push(incident_id, events, {"agent": "SecurityAgent", "message": f"BLOCKED: {cmd} — {step_approval['reason']}", "tier": "red"})
-                continue
-            step_output = executor.run(cmd)
-            tool_calls += 1
-            _log(incident_id, "DiagnosticAgent", "remediation", "yellow", cmd, step_output["stdout"])
-            _push(incident_id, events, {"agent": "DiagnosticAgent", "message": f"Executed: {cmd}", "tier": "yellow"})
-
-        return _finalize_runbook(incident_id, runbook, events, start, tool_calls)
-
-    update_incident(incident_id, status="resolved", resolution_summary=f"Approved and executed: {command}")
-    _push(incident_id, events, {"agent": "IncidentCommander", "message": "Incident resolved after approved remediation.", "tier": "green"})
-    return _with_report(incident_id, "resolved", events, start, tool_calls)
+    return reconcile_assessments(diag_assessment, sec_assessment)
 
 
 def _finalize_runbook(incident_id: str, runbook: dict, events: list, start: float, tool_calls: int) -> dict:

@@ -1,6 +1,7 @@
 import re
 from ..models import SafetyTier
-from ..safety.safety_validator import validate_command
+from ..safety.safety_validator import classify as classify_command, validate_command
+from . import llm
 
 
 SECURITY_INDICATORS = [
@@ -29,13 +30,39 @@ SECURITY_INDICATORS = [
 ]
 
 
-def assess_prompt(user_prompt: str) -> dict:
-    """Inspect the user's prompt for signs of a security incident.
+def assess_prompt(user_prompt: str, diagnostics: list[dict] | None = None) -> dict:
+    """Assess whether this is a security incident rather than an infrastructure fault.
 
-    Returns a structured assessment so the Incident Commander can reconcile
-    the security reading against the Diagnostic Agent's infrastructure reading.
+    Claude does the assessment; the indicator list below is the declared
+    fallback. Diagnostic output is passed in as fenced evidence so the agent can
+    also spot *indirect* injection — instruction-shaped text written into a log
+    by whatever process is being diagnosed.
     """
-    lowered = user_prompt.lower()
+    evidence = ""
+    if diagnostics:
+        evidence = "\n\n".join(
+            llm.wrap_evidence(d.get("command", "probe"), d.get("stdout", ""))
+            for d in diagnostics
+        )
+
+    result = llm.call_agent(
+        "SecurityAgent",
+        f"User report:\n{llm.wrap_evidence('user-report', user_prompt)}"
+        + (f"\n\nDiagnostic output:\n{evidence}" if evidence else ""),
+        expect_keys=("root_cause", "security_flagged"),
+    )
+    if result:
+        result["agent"] = "SecurityAgent"
+        result.setdefault("evidence", "")
+        result.setdefault("injection_attempt", False)
+        return result
+
+    return _assess_prompt_fallback(user_prompt)
+
+
+def _assess_prompt_fallback(user_prompt: str) -> dict:
+    """Declared fallback: keyword indicators over the user's own words."""
+    lowered = (user_prompt or "").lower()
     hits = [w for w in SECURITY_INDICATORS if w in lowered]
 
     if hits:
@@ -44,6 +71,8 @@ def assess_prompt(user_prompt: str) -> dict:
             "root_cause": "security/credential_harvesting",
             "evidence": f"Prompt contains security indicators: {', '.join(hits[:4])}.",
             "security_flagged": True,
+            "injection_attempt": False,
+            "_source": "keyword-fallback",
         }
 
     return {
@@ -51,34 +80,26 @@ def assess_prompt(user_prompt: str) -> dict:
         "root_cause": "infrastructure",
         "evidence": "No security indicators present in the user prompt.",
         "security_flagged": False,
+        "injection_attempt": False,
+        "_source": "keyword-fallback",
     }
 
 
 def check_action(command: str, context: str = "") -> dict:
-    tier = validate_command(command)
+    """Gate a proposed command against the allowlist.
 
-    if tier == SafetyTier.RED:
-        return {
-            "allowed": False,
-            "safety_tier": tier.value,
-            "reason": "BLOCKED: This command is in the Red tier (forbidden). It poses security or system integrity risks.",
-            "command": command,
-        }
-
-    if tier == SafetyTier.YELLOW:
-        return {
-            "allowed": True,
-            "requires_approval": True,
-            "safety_tier": tier.value,
-            "reason": "This action modifies system state and requires explicit user approval.",
-            "command": command,
-        }
-
+    `requires_approval` is retained in the payload for the UI's benefit but no
+    longer pauses the run: under the single-consent model a Yellow action
+    executes inside the window the user already agreed to. The allowlist's own
+    reason is passed through verbatim so an escalation ticket says *why* a
+    command was refused, not merely that it was.
+    """
+    decision = classify_command(command)
     return {
-        "allowed": True,
-        "requires_approval": False,
-        "safety_tier": tier.value,
-        "reason": "Read-only diagnostic command. Safe to execute.",
+        "allowed": decision.allowed,
+        "requires_approval": decision.tier is SafetyTier.YELLOW,
+        "safety_tier": decision.tier.value,
+        "reason": decision.reason,
         "command": command,
     }
 

@@ -93,7 +93,7 @@ def run_rehearsal() -> dict:
         elapsed_s2 = round((time.perf_counter() - start) * 1000, 1)
 
         _track(segments, "S2 Intake & Triage",
-               any("Classified as printer" in m for m in messages)
+               any("Classified as printing" in m for m in messages)
                and any("Runbook found" in m for m in messages),
                f"{incident_id} in {elapsed_s2} ms | triage + runbook match streamed")
 
@@ -109,19 +109,22 @@ def run_rehearsal() -> dict:
                and any("Reconciled in favor of SecurityAgent" in m for m in messages),
                f"{debate_id} in {elapsed_s3} ms | Diagnostic vs Security reconciled to security/credential_harvesting")
 
-        # --- Segment 4: Human-in-the-loop approval & execution ---
+        # --- Segment 4: Consent-window execution & verification ---
+        # The user consented once at intake; Green and Yellow steps run inside
+        # that window. What the segment has to show is the allowlist deciding,
+        # execution happening, and verification closing the loop.
         start = time.perf_counter()
-        frames = _consume_stream(client, incident_id)
-        pending = frames[-1]["data"]["pending_command"]
-        resp = client.post(f"/api/incidents/{incident_id}/approve", json={"command": pending})
-        approval = resp.json()
+        detail = client.get(f"/api/incidents/{incident_id}").json()
+        audit = detail["audit_log"]
+        done = _consume_stream(client, incident_id)[-1]["data"]
         elapsed_s4 = round((time.perf_counter() - start) * 1000, 1)
 
-        _track(segments, "S4 Approval, Execution & Verification",
-               approval["status"] == "resolved"
-               and any("Verification passed" in e["message"] for e in approval["events"])
-               and bool(approval.get("report_path")),
-               f"approved {pending} in {elapsed_s4} ms | resolved with report {approval.get('report_path')}")
+        _track(segments, "S4 Consent-Window Execution & Verification",
+               detail["incident"]["status"] == "resolved"
+               and any(e["action_type"] == "remediation" for e in audit)
+               and any(e["action_type"] == "verification" for e in audit)
+               and bool(done.get("report_path")),
+               f"{incident_id} resolved in {elapsed_s4} ms | report {done.get('report_path')}")
 
         # --- Segment 5: Prompt injection & policy defense ---
         start = time.perf_counter()

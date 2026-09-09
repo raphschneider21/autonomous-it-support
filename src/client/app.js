@@ -52,53 +52,14 @@ function closeEventStream() {
 }
 
 function handleDone(result) {
-    const status = result.status || "unknown";
-
-    if (status === "awaiting_approval") {
-        // Stop receiving events for now; wait for the user's decision.
-        closeEventStream();
-        showApprovalModal(result.pending_command, "This action requires your approval.");
-        return;
-    }
-
+    // A run reaches a terminal state in one pass. The user consented once on
+    // the intake screen, so Green and Yellow actions have already executed
+    // inside that window; anything the allowlist refused was escalated rather
+    // than offered for approval.
     closeEventStream();
     showResolution(result);
 }
 
-/* ===== Approval ===== */
-async function approveAction() {
-    hideApprovalModal();
-    if (!currentIncidentId) return;
-
-    const command = document.getElementById("approval-command").textContent;
-    try {
-        await fetch(`/api/incidents/${currentIncidentId}/approve`, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({command}),
-        });
-        // Re-open the stream to catch the post-approval events.
-        openEventStream();
-    } catch (err) {
-        addEvent({agent: "System", message: "Error: " + err.message, tier: "red"});
-    }
-}
-
-function denyAction() {
-    hideApprovalModal();
-    closeEventStream();
-    addEvent({agent: "System", message: "User denied the action.", tier: "yellow"});
-    showResolution({status: "escalated"});
-}
-
-function emergencyStop() {
-    hideApprovalModal();
-    closeEventStream();
-    addEvent({agent: "System", message: "EMERGENCY STOP triggered by user.", tier: "red"});
-    showResolution({status: "escalated"});
-}
-
-/* ===== Resolution ===== */
 function showResolution(data) {
     const status = data.status || "unknown";
     const title = document.getElementById("resolution-title");
@@ -120,16 +81,6 @@ function showResolution(data) {
     }
 
     showScreen("screen-resolution");
-}
-
-function showApprovalModal(command, description) {
-    document.getElementById("approval-command").textContent = command;
-    document.getElementById("approval-description").textContent = description;
-    document.getElementById("approval-modal").classList.remove("hidden");
-}
-
-function hideApprovalModal() {
-    document.getElementById("approval-modal").classList.add("hidden");
 }
 
 function addEvent(event) {

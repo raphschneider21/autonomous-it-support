@@ -3,12 +3,13 @@
 The knowledge base is organised into **stores** so several endpoint platforms
 can coexist without one polluting the other's retrieval results:
 
-    fixtures/runbooks/                 -> store "default"      (Windows fixtures)
     fixtures/runbooks/ubuntu-26.04/    -> store "ubuntu-26.04" (Ubuntu 26.04 LTS VM)
 
 `load_all_runbooks()` with no argument reads the store named by the
-`RUNBOOK_STORE` environment variable, defaulting to "default", so the engine
-and the live demo keep their current behaviour until the team flips the switch.
+`RUNBOOK_STORE` environment variable, which defaults to the Ubuntu store — the
+only platform this project targets. A flat `fixtures/runbooks/*.yaml` layout is
+still honoured as the store named "default" so a test can point
+`RUNBOOKS_DIR` at a temporary directory, but no such runbooks ship.
 """
 import os
 import json
@@ -20,6 +21,7 @@ import yaml
 RUNBOOKS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "runbooks")
 UBUNTU_STORE = "ubuntu-26.04"
 DEFAULT_STORE = "default"
+ACTIVE_STORE_DEFAULT = UBUNTU_STORE
 
 # --- Cache: avoid re-reading + re-parsing YAML from disk on every incident ---
 _cached_runbooks: dict[str, list[dict]] = {}
@@ -28,7 +30,7 @@ _cache_mtime: dict[str, float] = {}
 
 def active_store() -> str:
     """Store the engine reads when no store is passed explicitly."""
-    return os.environ.get("RUNBOOK_STORE", DEFAULT_STORE)
+    return os.environ.get("RUNBOOK_STORE", ACTIVE_STORE_DEFAULT)
 
 
 def store_dir(store: Optional[str] = None) -> str:

@@ -32,7 +32,7 @@ CADENCE = [
     ("S1  Opener & Problem Framing",    "0:00-1:00",  60),
     ("S2  Incident Intake & Triage",    "1:00-4:00", 180),
     ("S3  Agent Traces & Disagreement", "4:00-7:00", 180),
-    ("S4  Approval & Safe Execution",   "7:00-9:00", 120),
+    ("S4  Consent-Window Safe Execution", "7:00-9:00", 120),
     ("S5  Prompt Injection Defense",    "9:00-11:00", 120),
     ("S6  Technical Deep Dive",        "11:00-13:00", 120),
     ("S7  Measured Outcomes & Wrap",   "13:00-15:00", 120),

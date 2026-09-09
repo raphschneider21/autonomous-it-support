@@ -32,7 +32,7 @@ def _cleanup_db():
 
 def test_classify_printer():
     result = classify_from_mock("The printer is broken and print jobs are stuck")
-    assert result["category"] == "printer"
+    assert result["category"] == "printing"
 
 
 def test_classify_network():
