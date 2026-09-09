@@ -17,9 +17,7 @@ from ..knowledge.runbook_parser import load_all_runbooks
 from ..integrations.escalation import generate_escalation_ticket
 from ..integrations import monitoring_client
 from ..documentation.report_generator import generate_report
-from ..executors.mock_executor import MockExecutor
-
-executor = MockExecutor()
+from ..executors.factory import get_executor
 
 
 def _emit(incident_id: str, event: dict):
@@ -64,6 +62,7 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
     _push(incident_id, events, {"agent": "TriageAgent", "message": f"Classified as {classification['category']} ({classification['severity']} severity).", "tier": "green"})
 
     # Step 3: Diagnostic
+    executor = get_executor()
     diagnostics = diagnose(classification["category"], executor)
     tool_calls += len(diagnostics)
     for d in diagnostics:
@@ -136,7 +135,7 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
             # boundary is enforced by the allowlist, not by a modal the user
             # would click through anyway — anything it does not recognise is
             # RED above and escalates instead of running.
-            output = executor.run(cmd)
+            output = get_executor().run(cmd)
             tool_calls += 1
             _log(incident_id, "DiagnosticAgent", "remediation", approval["safety_tier"], cmd, output["stdout"])
             _push(incident_id, events, {"agent": "DiagnosticAgent", "message": f"Executed: {cmd}", "tier": approval["safety_tier"]})
@@ -219,7 +218,7 @@ def _reconcile(diag_assessment: dict, sec_assessment: dict) -> dict:
 
 def _finalize_runbook(incident_id: str, runbook: dict, events: list, start: float, tool_calls: int) -> dict:
     """Run the runbook's verification spec and resolve or escalate accordingly."""
-    verification = _run_verification(incident_id, runbook, executor, events)
+    verification = _run_verification(incident_id, runbook, get_executor(), events)
     tool_calls += verification["tool_calls"]
 
     runbook_id = runbook.get("runbook_id")

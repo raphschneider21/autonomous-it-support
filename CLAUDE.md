@@ -79,8 +79,19 @@ uvicorn src.monitoring.app:app --host 0.0.0.0 --port 8001   # -> localhost:8001
 
 # On the Ubuntu VM — the troubleshooter, pointed at the Mac
 export MONITORING_URL=http://10.211.55.2:8001               # Parallels host address
+export EXECUTOR=real                                        # actually fix the machine
 uvicorn src.main:app --host 0.0.0.0 --port 8000             # -> localhost:8000
 ```
+
+**`EXECUTOR` defaults to `mock`.** A fresh clone returns recorded fixture output
+and touches nothing — deliberate, so a checkout on a new machine does not start
+issuing `systemctl` commands because nobody read this file. Set `EXECUTOR=real`
+on the VM to act on the endpoint; the allowlist applies identically either way.
+
+Mock and real runs are **indistinguishable in the UI** — same "Executed: …"
+events, same "Verification passed". A mock run on a genuinely broken VM will
+look like a successful fix. `GET /api/health` and the startup banner both say
+which mode is live; check one of them before you trust a demo.
 
 Both on one machine works with no configuration at all: `MONITORING_URL`
 defaults to `http://127.0.0.1:8001`. From the VM, find the Mac's address with

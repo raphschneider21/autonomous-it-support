@@ -5,7 +5,8 @@ import uuid
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.engine.incident_commander import _run_verification, _finalize_runbook, executor
+from src.engine.incident_commander import _run_verification, _finalize_runbook
+from src.executors.factory import get_executor
 import src.database as db
 
 
@@ -25,7 +26,7 @@ def test_verification_passes_when_regex_matches():
     _fresh_db()
     try:
         runbook = {"verification": [{"command": "echo running", "expected_output_regex": "run"}]}
-        result = _run_verification("T-1", runbook, executor, [])
+        result = _run_verification("T-1", runbook, get_executor(), [])
         assert result["passed"] is True
         assert result["tool_calls"] == 1
     finally:
@@ -36,7 +37,7 @@ def test_verification_fails_when_regex_does_not_match():
     _fresh_db()
     try:
         runbook = {"verification": [{"command": "echo running", "expected_output_regex": "something_else"}]}
-        result = _run_verification("T-2", runbook, executor, [])
+        result = _run_verification("T-2", runbook, get_executor(), [])
         assert result["passed"] is False
     finally:
         _cleanup_db()
@@ -46,7 +47,7 @@ def test_verification_passes_empty_spec():
     _fresh_db()
     try:
         runbook = {"verification": []}
-        result = _run_verification("T-3", runbook, executor, [])
+        result = _run_verification("T-3", runbook, get_executor(), [])
         assert result["passed"] is True
     finally:
         _cleanup_db()

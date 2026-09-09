@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from .models import IncidentCreate
 from .database import init_db, get_incident, update_incident, get_audit_log, get_all_runbooks
 from .integrations import monitoring_client
+from .executors import factory as executor_factory
 from .knowledge.runbook_parser import seed_runbooks_db
 from .engine.incident_commander import run_incident
 from .integrations.escalation import generate_escalation_ticket
@@ -24,10 +25,26 @@ def startup():
     init_db()
     seed_runbooks_db()
 
+    # Which executor is live is the single most consequential thing about a
+    # deployment, and mock and real runs look identical in the UI. Say it out
+    # loud on every start.
+    mode = executor_factory.describe()
+    banner = "REAL — commands will run on this machine" if mode["executes_on_this_machine"] \
+        else "MOCK — fixture output only, this machine is not touched"
+    print(f"[startup] executor: {banner}")
+    print(f"[startup] service desk: {monitoring_client.monitoring_url()} "
+          f"({'enabled' if monitoring_client.enabled() else 'disabled'})")
+
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    """Health, plus the two facts a deployment most often gets wrong."""
+    return {
+        "status": "ok",
+        **executor_factory.describe(),
+        "monitoring_url": monitoring_client.monitoring_url(),
+        "monitoring_enabled": monitoring_client.enabled(),
+    }
 
 
 @app.post("/api/incidents")
