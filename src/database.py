@@ -143,6 +143,36 @@ def insert_runbook(runbook: dict):
     conn.close()
 
 
+def prune_runbooks_not_in(active_ids: list[str]) -> int:
+    """Drop runbook rows that no longer belong to the active store.
+
+    `seed_runbooks_db()` writes the active store into this table, but rows
+    seeded by a *previous* store survive, so after a store switch
+    `GET /api/runbooks` advertises runbooks the engine can never match.
+
+    Rows still referenced by an incident are kept: `incidents.runbook_id` is a
+    foreign key into this table, and a resolved incident's report cites the
+    runbook that fixed it. Deleting those would sever the audit trail, which
+    ADR 13 treats as inviolable. Returns the number of rows removed.
+    """
+    if not active_ids:
+        return 0
+
+    conn = get_connection()
+    placeholders = ",".join("?" for _ in active_ids)
+    cursor = conn.execute(
+        f"""DELETE FROM runbooks
+             WHERE id NOT IN ({placeholders})
+               AND id NOT IN (SELECT runbook_id FROM incidents
+                               WHERE runbook_id IS NOT NULL)""",
+        list(active_ids),
+    )
+    removed = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return removed
+
+
 def get_all_runbooks():
     conn = get_connection()
     rows = conn.execute("SELECT * FROM runbooks").fetchall()

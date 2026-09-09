@@ -24,9 +24,9 @@
     "stdout": "Mode    LastWriteTime     Length Name\n----    -------------     ------ ----\n-a----  9/8/2026 10:02 AM    24572 JOB00421.SPL\n-a----  9/8/2026 10:01 AM     8192 JOB00420.SPL",
     "stderr": ""
   },
-  "Remove-Item -Path /var/spool/cups/* -Force -ErrorAction SilentlyContinue": {
+  "Remove-Item -Path $env:SystemRoot\\System32\\spool\\PRINTERS\\* -Force -ErrorAction SilentlyContinue": {
     "exit_code": 0,
-    "stdout": "[MOCK] Spool files cleared.",
+    "stdout": "[MOCK] 2 orphaned spool files removed from the PRINTERS folder.",
     "stderr": ""
   },
   "Test-NetConnection -ComputerName google.com -InformationLevel Detailed": {
@@ -62,6 +62,36 @@
   "Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 Name, CPU, WorkingSet64": {
     "exit_code": 0,
     "stdout": "Name               CPU    WorkingSet64\n----               ---    -----------\nchrome             45.2   1234567890\ndebugger           12.8   567890123\ncode               8.4    345678901",
+    "stderr": ""
+  },
+  "Get-NetAdapter | Select-Object Name, Status": {
+    "exit_code": 0,
+    "stdout": "Name                   Status\n----                   ------\nEthernet               Up\nCisco AnyConnect       Disconnected",
+    "stderr": ""
+  },
+  "Restart-NetAdapter -Name 'Cisco AnyConnect'": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Adapter 'Cisco AnyConnect' restarted successfully.",
+    "stderr": ""
+  },
+  "ipconfig /release && ipconfig /renew": {
+    "exit_code": 0,
+    "stdout": "Windows IP Configuration\n\nIP address successfully released.\nIP address successfully renewed for adapter \"Ethernet\".",
+    "stderr": ""
+  },
+  "ipconfig /renew": {
+    "exit_code": 0,
+    "stdout": "Windows IP Configuration\n\nEthernet adapter Ethernet:\n   IPv4 Address. . . . . . . . . . . : 192.168.1.100\n   Default Gateway . . . . . . . . . : 192.168.1.1",
+    "stderr": ""
+  },
+  "Test-NetConnection -ComputerName google.com": {
+    "exit_code": 0,
+    "stdout": "ComputerName     : google.com\nRemoteAddress    : 142.250.74.206\nRemotePort       : 443\nInterfaceAlias   : Ethernet\nTcpTestSucceeded : True",
+    "stderr": ""
+  },
+  "net use": {
+    "exit_code": 0,
+    "stdout": "New connections will be remembered.\n\nStatus       Local     Remote                    Network\n-------------------------------------------------------------\nOK           Z:        \\\\fileserver\\shared       Microsoft Windows Network",
     "stderr": ""
   }
 }

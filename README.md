@@ -1,7 +1,8 @@
 # Autonomous Enterprise IT Support Agent (Tier 1)
 
 [![FHNW Generative AI Project](https://img.shields.io/badge/FHNW-Generative_AI_Project-blue.svg)](https://www.fhnw.ch)
-[![Status](https://img.shields.io/badge/Status-Milestone_0:_Design-green.svg)]()
+[![Status](https://img.shields.io/badge/Status-Milestone_5:_TDD_%26_Demo_Rehearsal-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-308_passing-brightgreen.svg)]()
 [![Target](https://img.shields.io/badge/Demonstration-15_Min_Live_PoC-orange.svg)]()
 
 An autonomous, multi-agent IT support desktop troubleshooter for enterprise workstations. Designed and implemented for the **FHNW University Generative AI Project** (Submission: September 30, 2026).
@@ -13,6 +14,76 @@ The agent diagnoses endpoint issues, safely executes remediations, produces dual
 ## 🚀 Team Quickstart
 Are you a collaborating developer joining this project?  
 👉 **Read the [Team Onboarding & Setup Guide](TEAM_QUICKSTART.md)** to clone the repo, connect your AI agent, and claim your role.
+
+---
+
+## ⚡ Getting Started
+
+**Prerequisites**: Python 3.11+ (3.13 tested). No database server, API key or
+network access is required — the PoC runs fully offline against a deterministic
+mock endpoint (ADR 14).
+
+> On a stock macOS or Debian install there is no bare `python`/`pip` on PATH —
+> use `python3` and `pip3` (or activate a virtualenv) for every command below.
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Start the API + client UI
+python -m uvicorn src.main:app --reload
+
+# 3. Open the client
+#    http://127.0.0.1:8000
+```
+
+SQLite (`data/incidents.db`) is created and the runbook store is seeded
+automatically on first start — there is no migration step.
+
+### Running the tests
+
+```bash
+python -m pytest tests/ -q                              # full suite
+python -m pytest tests/test_e2e.py -q                   # HTTP + SSE lifecycle
+python -m pytest tests/test_demo_dryrun.py -q -s        # live-demo readiness gate
+python -m pytest tests/test_runbook_retrieval_benchmark.py -q   # retrieval accuracy
+```
+
+### Selecting the endpoint platform
+
+Runbooks are organised into per-platform **stores** (ADR 16). The engine reads
+`RUNBOOK_STORE`, defaulting to the Windows fixtures used by the current demo:
+
+```bash
+python -m uvicorn src.main:app                          # default: Windows fixtures (3 runbooks)
+RUNBOOK_STORE=ubuntu-26.04 python -m uvicorn src.main:app   # Ubuntu 26.04 LTS VM (30 runbooks)
+```
+
+The Ubuntu store targets an **Ubuntu 26.04 LTS VM** endpoint — GNOME 50 on
+Wayland, PipeWire + WirePlumber, systemd-resolved, sudo-rs and uutils
+coreutils. Cutover status is tracked in `docs/roadmap.md` (Milestone 6).
+
+### Configuration
+
+Copy `.env.example` to `.env` if you want to exercise the (optional) Gemini
+classification path. The graded demo path does **not** call any model — it uses
+deterministic mock triage so traces are reproducible.
+
+```bash
+cp .env.example .env    # then set GOOGLE_API_KEY
+```
+
+### HTTP API
+
+| Method | Endpoint | Purpose |
+|:---|:---|:---|
+| `GET` | `/` | Client UI |
+| `GET` | `/api/health` | Liveness probe |
+| `POST` | `/api/incidents` | Submit an incident (`{"user_prompt": "..."}`) |
+| `GET` | `/api/incidents/{id}/events` | Live agent trace (Server-Sent Events) |
+| `GET` | `/api/incidents/{id}` | Incident record + audit log |
+| `POST` | `/api/incidents/{id}/approve` | Grant consent for a Yellow-tier command |
+| `GET` | `/api/runbooks` | Runbooks in the active store |
 
 ---
 
@@ -90,6 +161,7 @@ This project is engineered to achieve the **"Exceeded" (10/10)** standard across
 | **Business Demo** | End-to-end incident lifecycle tied to ROI | [`.agents/rules/live-demo-spec.md`](./.agents/rules/live-demo-spec.md) |
 | **Technology Demo** | Traces, tool calling, agent disagreements under the hood | [`.agents/rules/live-demo-spec.md`](./.agents/rules/live-demo-spec.md) |
 | **Ethics & Safety** | Safety gates, human consent, prompt injection guardrails | [`.agents/rules/safety.md`](./.agents/rules/safety.md) |
+| **Knowledge & RAG** | Runbook retrieval accuracy, abstention, ingestion design | [`docs/runbook-matching.md`](./docs/runbook-matching.md), [`docs/rag-ingestion-strategy.md`](./docs/rag-ingestion-strategy.md) |
 
 For comprehensive rubric mappings, see [`docs/grading-and-deliverables.md`](./docs/grading-and-deliverables.md).
 
@@ -120,9 +192,38 @@ Every operation proposed by an agent is evaluated against hard safety boundaries
 │   ├── problem-scope.md             # Business problem & incident taxonomy
 │   ├── documentation-model.md       # AI Runbooks & Human Incident Reports specs
 │   ├── user-journey.md              # Sequence flows & escalation protocol
-│   └── roadmap.md                   # Team task board & sprint milestones
-├── src/                        # Application source code
-├── tests/                      # Automated test suites & performance benchmarks
+│   ├── roadmap.md                   # Team task board & sprint milestones
+│   ├── schema.md                    # Frozen interface contracts (all subsystems)
+│   ├── architectural-decisions.md   # ADRs 1-19, binding for all developers
+│   ├── contract-validation.md       # Milestone-1 contract conformance pass
+│   ├── runbook-matching.md          # Retrieval algorithm design + measured results
+│   ├── rag-ingestion-strategy.md    # Legacy-script ingestion pipeline (design)
+│   ├── tdd.md / tdd-evidence.md     # Technical Design Document + evidence logs
+│   ├── benchmark-round2.md          # Before/after efficiency comparison
+│   └── demo-dryrun.md               # Live-demo rehearsal protocol
+├── src/
+│   ├── main.py                 # FastAPI app: REST + SSE endpoints, static client
+│   ├── models.py               # Pydantic contracts & SafetyTier enum
+│   ├── database.py             # SQLite schema + access (incidents, runbooks, audit)
+│   ├── engine/                 # Incident Commander, Triage, Diagnostic, Security
+│   ├── executors/              # IExecutor + MockExecutor / RealExecutor
+│   ├── safety/                 # Green/Yellow/Red command validation
+│   ├── knowledge/              # Runbook store, parser/cache, retrieval matcher
+│   ├── documentation/          # Human-readable incident report generator
+│   ├── integrations/           # ITSM escalation ticket bridge
+│   └── client/                 # Browser UI (intake, live timeline, resolution)
+├── fixtures/
+│   ├── runbooks/               # AI-executable runbooks — "default" store (Windows)
+│   │   └── ubuntu-26.04/       # "ubuntu-26.04" store (30 runbooks, VM endpoint)
+│   ├── mock_outputs.json       # Deterministic command outputs (Windows)
+│   └── mock_outputs_ubuntu-26.04.json  # ... and for the Ubuntu 26.04 VM
+├── data/
+│   ├── benchmarks/             # Recorded benchmark evidence (tracked)
+│   ├── reports/                # Generated incident reports (gitignored)
+│   └── incidents.db            # SQLite database (gitignored)
+├── tests/                      # Unit, E2E, benchmark and demo-gate suites
+│   ├── dataset_ubuntu_easy.json         # 33-case training dataset
+│   └── dataset_ubuntu_paraphrases.json  # Held-out retrieval evaluation set
 ├── GEMINI.md                   # AI agent entrypoint & operational rules
 ├── TEAM_QUICKSTART.md          # Collaborator onboarding guide
 └── README.md                   # Project overview & navigation

@@ -19,7 +19,13 @@ def generate_escalation_ticket(incident: dict, audit_entries: list[dict]) -> Esc
             ))
 
     return EscalationTicket(
-        ticket_title=f"Escalation: {incident.get('category', 'Unknown')} issue on {incident.get('hostname', 'Unknown')}",
+        # `.get(key, default)` only falls back when the key is *absent*; a
+        # SQLite row always carries the column, so an unclassified incident
+        # yields None. Every other field below uses `or` for this reason.
+        ticket_title=(
+            f"Escalation: {incident.get('category') or 'Unknown'} issue on "
+            f"{incident.get('hostname') or 'Unknown'}"
+        ),
         requester=Requester(
             username="endpoint-user",
             department="unknown",

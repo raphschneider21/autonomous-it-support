@@ -1,79 +1,397 @@
 {
-  "nmcli -t -f STATE general": {"exit_code": 0, "stdout": "connected", "stderr": ""},
-  "nmcli radio wifi off; nmcli radio wifi on": {"exit_code": 0, "stdout": "[MOCK] Wireless radio cycled off and back on.", "stderr": ""},
-  "cat /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf": {"exit_code": 0, "stdout": "[connection]\nwifi.powersave = 2", "stderr": ""},
-  "sudo sed -i": {"exit_code": 0, "stdout": "", "stderr": ""},
-  "sudo systemctl restart NetworkManager": {"exit_code": 0, "stdout": "[MOCK] NetworkManager restarted.", "stderr": ""},
-  "sudo resolvectl flush-caches": {"exit_code": 0, "stdout": "[MOCK] DNS caches flushed.", "stderr": ""},
-  "sudo systemctl restart systemd-resolved": {"exit_code": 0, "stdout": "[MOCK] systemd-resolved restarted.", "stderr": ""},
-  "systemctl is-active systemd-resolved": {"exit_code": 0, "stdout": "active", "stderr": ""},
-  "ping -c 4 1.1.1.1": {"exit_code": 0, "stdout": "PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.\n64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=8.71 ms\n64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=9.02 ms\n64 bytes from 1.1.1.1: icmp_seq=3 ttl=57 time=8.44 ms\n64 bytes from 1.1.1.1: icmp_seq=4 ttl=57 time=8.90 ms\n\n--- 1.1.1.1 ping statistics ---\n4 packets transmitted, 4 received, 0% packet loss, time 3005ms", "stderr": ""},
-  "resolvectl query ubuntu.com": {"exit_code": 0, "stdout": "ubuntu.com: 185.125.190.21 -- link: enp0s3\n            185.125.190.20 -- link: enp0s3\n\n-- Information acquired via protocol DNS in 12.4ms.", "stderr": ""},
-  "rfkill list": {"exit_code": 0, "stdout": "0: hci0: Bluetooth\n\tSoft blocked: no\n\tHard blocked: no\n1: phy0: Wireless LAN\n\tSoft blocked: no\n\tHard blocked: no", "stderr": ""},
-  "sudo rfkill unblock wifi": {"exit_code": 0, "stdout": "[MOCK] Wireless radio unblocked.", "stderr": ""},
-  "sudo systemctl restart bluetooth": {"exit_code": 0, "stdout": "[MOCK] bluetooth.service restarted.", "stderr": ""},
-  "systemctl is-active bluetooth": {"exit_code": 0, "stdout": "active", "stderr": ""},
-  "bluetoothctl power on": {"exit_code": 0, "stdout": "Changing power on succeeded", "stderr": ""},
-  "bluetoothctl show": {"exit_code": 0, "stdout": "Controller AC:12:03:9F:2B:70 (public)\n\tName: ubuntu-vm-01\n\tPowered: yes\n\tDiscoverable: no", "stderr": ""},
-  "systemctl --user restart wireplumber pipewire pipewire-pulse": {"exit_code": 0, "stdout": "[MOCK] PipeWire stack restarted for the session user.", "stderr": ""},
-  "systemctl --user is-active pipewire": {"exit_code": 0, "stdout": "active", "stderr": ""},
-  "wpctl status": {"exit_code": 0, "stdout": "PipeWire 'pipewire-0' [1.4.2, fabian@ubuntu-vm-01, cookie:812]\n\nAudio\n ├─ Devices:\n │      44. Built-in Audio                     [alsa]\n ├─ Sinks:\n │  *   46. Built-in Audio Analog Stereo       [vol: 0.70]\n │      47. Headphones                         [vol: 0.70]\n └─ Sources:\n     *  48. Built-in Audio Analog Stereo        [vol: 0.80]", "stderr": ""},
-  "wpctl set-default 47": {"exit_code": 0, "stdout": "[MOCK] Default sink set to node 47.", "stderr": ""},
-  "pactl info": {"exit_code": 0, "stdout": "Server String: /run/user/1000/pulse/native\nServer Name: PulseAudio (on PipeWire 1.4.2)\nDefault Sink: alsa_output.pci-0000_00_05.0.analog-stereo\nDefault Source: alsa_input.pci-0000_00_05.0.analog-stereo", "stderr": ""},
-  "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0": {"exit_code": 0, "stdout": "[MOCK] Default source unmuted.", "stderr": ""},
-  "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.80": {"exit_code": 0, "stdout": "[MOCK] Default source volume set to 0.80.", "stderr": ""},
-  "wpctl get-volume @DEFAULT_AUDIO_SOURCE@": {"exit_code": 0, "stdout": "Volume: 0.80", "stderr": ""},
-  "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0": {"exit_code": 0, "stdout": "[MOCK] Default sink unmuted.", "stderr": ""},
-  "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.70": {"exit_code": 0, "stdout": "[MOCK] Default sink volume set to 0.70.", "stderr": ""},
-  "wpctl get-volume @DEFAULT_AUDIO_SINK@": {"exit_code": 0, "stdout": "Volume: 0.70", "stderr": ""},
-  "sudo timedatectl set-ntp true": {"exit_code": 0, "stdout": "[MOCK] Network time synchronisation enabled.", "stderr": ""},
-  "sudo systemctl restart systemd-timesyncd": {"exit_code": 0, "stdout": "[MOCK] systemd-timesyncd restarted.", "stderr": ""},
-  "systemctl is-active systemd-timesyncd": {"exit_code": 0, "stdout": "active", "stderr": ""},
-  "timedatectl show -p NTPSynchronized --value": {"exit_code": 0, "stdout": "yes", "stderr": ""},
-  "timedatectl show -p Timezone --value": {"exit_code": 0, "stdout": "Europe/Zurich", "stderr": ""},
-  "timedatectl list-timezones": {"exit_code": 0, "stdout": "Europe/Vienna\nEurope/Warsaw\nEurope/Zagreb\nEurope/Zurich", "stderr": ""},
-  "sudo timedatectl set-timezone Europe/Zurich": {"exit_code": 0, "stdout": "[MOCK] Timezone set to Europe/Zurich.", "stderr": ""},
-  "apt-cache policy": {"exit_code": 0, "stdout": "Package files:\n 100 /var/lib/dpkg/status\n     release a=now\n 500 http://ch.archive.ubuntu.com/ubuntu resolute/main amd64 Packages\n     release v=26.04,o=Ubuntu,a=resolute,n=resolute,l=Ubuntu,c=main,b=amd64", "stderr": ""},
-  "sudo dpkg --configure -a": {"exit_code": 0, "stdout": "Setting up libc-bin (2.42-0ubuntu3) ...\nProcessing triggers for man-db (2.13.1-1) ...", "stderr": ""},
-  "sudo dpkg --audit": {"exit_code": 0, "stdout": "", "stderr": ""},
-  "sudo apt-get --fix-broken install -y": {"exit_code": 0, "stdout": "Reading package lists... Done\nBuilding dependency tree... Done\nReading state information... Done\n0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.", "stderr": ""},
-  "sudo apt-get check": {"exit_code": 0, "stdout": "Reading package lists... Done\nBuilding dependency tree... Done\nReading state information... Done", "stderr": ""},
-  "sudo fuser -v /var/lib/dpkg/lock-frontend": {"exit_code": 0, "stdout": "                     USER        PID ACCESS COMMAND\n/var/lib/dpkg/lock-frontend:\n                     root       2841 F.... unattended-upgr", "stderr": ""},
-  "sudo fuser /var/lib/dpkg/lock-frontend": {"exit_code": 1, "stdout": "", "stderr": ""},
-  "sudo systemctl stop unattended-upgrades.service": {"exit_code": 0, "stdout": "[MOCK] unattended-upgrades.service stopped.", "stderr": ""},
-  "sudo killall -q apt apt-get": {"exit_code": 0, "stdout": "", "stderr": ""},
-  "sudo apt update": {"exit_code": 0, "stdout": "Hit:1 http://ch.archive.ubuntu.com/ubuntu resolute InRelease\nGet:2 http://security.ubuntu.com/ubuntu resolute-security InRelease [126 kB]\nFetched 126 kB in 1s (118 kB/s)\nReading package lists... Done\n3 packages can be upgraded. Run 'apt list --upgradable' to see them.", "stderr": ""},
-  "sudo apt-get update": {"exit_code": 0, "stdout": "Hit:1 http://ch.archive.ubuntu.com/ubuntu resolute InRelease\nReading package lists... Done", "stderr": ""},
-  "busctl --user call": {"exit_code": 1, "stdout": "", "stderr": "Call failed: Connection timed out"},
-  "systemctl --user restart org.gnome.Shell@wayland.service": {"exit_code": 0, "stdout": "[MOCK] GNOME Shell user service restarted.", "stderr": ""},
-  "systemctl --user is-active org.gnome.Shell@wayland.service": {"exit_code": 0, "stdout": "active", "stderr": ""},
-  "sudo systemctl restart gdm.service": {"exit_code": 0, "stdout": "[MOCK] gdm.service restarted; the graphical session was recreated.", "stderr": ""},
-  "systemctl is-active gdm.service": {"exit_code": 0, "stdout": "active", "stderr": ""},
-  "ps -eo pid,etimes,stat,comm --sort=-etimes": {"exit_code": 0, "stdout": "    PID ETIMES STAT COMMAND\n   1214  48213 Ssl  gnome-shell\n   3902   6120 Dl   firefox\n   4118    832 Ss   gnome-terminal-", "stderr": ""},
-  "pkill -": {"exit_code": 0, "stdout": "[MOCK] Signal delivered to the matching process.", "stderr": ""},
-  "pgrep -f firefox": {"exit_code": 1, "stdout": "", "stderr": ""},
-  "gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true": {"exit_code": 0, "stdout": "", "stderr": ""},
-  "gsettings get org.gnome.desktop.peripherals.touchpad tap-to-click": {"exit_code": 0, "stdout": "true", "stderr": ""},
-  "sudo modprobe -r psmouse": {"exit_code": 0, "stdout": "[MOCK] psmouse module unloaded.", "stderr": ""},
-  "sudo modprobe psmouse": {"exit_code": 0, "stdout": "[MOCK] psmouse module loaded.", "stderr": ""},
-  "lsmod": {"exit_code": 0, "stdout": "Module                  Size  Used by\npsmouse               217088  0\nbluetooth            1114112  8\nsnd_hda_intel         204800  1", "stderr": ""},
-  "libinput list-devices": {"exit_code": 0, "stdout": "Device:           SynPS/2 Synaptics Touchpad\nKernel:           /dev/input/event6\nGroup:            9\nTap-to-click:     enabled", "stderr": ""},
-  "gsettings get org.gnome.desktop.input-sources sources": {"exit_code": 0, "stdout": "[('xkb', 'ch')]", "stderr": ""},
-  "gsettings set org.gnome.desktop.input-sources sources": {"exit_code": 0, "stdout": "", "stderr": ""},
-  "gdctl show": {"exit_code": 0, "stdout": "Monitors:\n├── Monitor Virtual-1\n│   ├── Vendor:  QEMU Monitor\n│   └── Modes:\n│       ├── 1920x1080@60.000 [current] [preferred]\n│       └── 1280x720@60.000\n└── Monitor HDMI-1\n    ├── Vendor:  Dell Inc.\n    └── Modes:\n        └── 1920x1080@60.000 [preferred]\n\nLogical monitors:\n└── Logical monitor #1 [primary]\n    └── Monitor Virtual-1 1920x1080@60.000", "stderr": ""},
-  "gdctl set": {"exit_code": 0, "stdout": "[MOCK] Monitor configuration applied.", "stderr": ""},
-  "brightnessctl set 50%": {"exit_code": 0, "stdout": "Updated device 'intel_backlight':\nCurrent brightness: 480 (50%)", "stderr": ""},
-  "brightnessctl info": {"exit_code": 0, "stdout": "Device 'intel_backlight' of class 'backlight':\n\tCurrent brightness: 480 (50%)\n\tMax brightness: 960", "stderr": ""},
-  "sudo apt clean": {"exit_code": 0, "stdout": "", "stderr": ""},
-  "sudo journalctl --vacuum-size=50M": {"exit_code": 0, "stdout": "Deleted archived journal /var/log/journal/9f2b/system@0005.journal (128.0M).\nVacuuming done, freed 1.4G of archived journals.", "stderr": ""},
-  "df -h /": {"exit_code": 0, "stdout": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/vda2        49G   28G   19G  61% /", "stderr": ""},
-  "findmnt -no OPTIONS /": {"exit_code": 0, "stdout": "rw,relatime,errors=remount-ro", "stderr": ""},
-  "sudo mount -o remount,rw /": {"exit_code": 0, "stdout": "[MOCK] Root filesystem remounted read-write.", "stderr": ""},
-  "cancel -a": {"exit_code": 0, "stdout": "", "stderr": ""},
-  "sudo systemctl restart cups": {"exit_code": 0, "stdout": "[MOCK] cups.service restarted.", "stderr": ""},
-  "systemctl is-active cups": {"exit_code": 0, "stdout": "active", "stderr": ""},
-  "lpstat -o": {"exit_code": 0, "stdout": "", "stderr": ""},
-  "lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS": {"exit_code": 0, "stdout": "NAME   SIZE FSTYPE MOUNTPOINTS\nvda     50G\n├─vda1   1G vfat   /boot/efi\n└─vda2  49G ext4   /\nsdb   28.7G\n└─sdb1 28.7G vfat", "stderr": ""},
-  "lsblk -o NAME,MOUNTPOINTS": {"exit_code": 0, "stdout": "NAME   MOUNTPOINTS\nvda\n├─vda1 /boot/efi\n└─vda2 /\nsdb\n└─sdb1 /run/media/fabian/USB32", "stderr": ""},
-  "udisksctl mount -b /dev/sdb1": {"exit_code": 0, "stdout": "Mounted /dev/sdb1 at /run/media/fabian/USB32", "stderr": ""}
+  "nmcli -t -f STATE general": {
+    "exit_code": 0,
+    "stdout": "connected",
+    "stderr": ""
+  },
+  "nmcli radio wifi off; nmcli radio wifi on": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Wireless radio cycled off and back on.",
+    "stderr": ""
+  },
+  "cat /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf": {
+    "exit_code": 0,
+    "stdout": "[connection]\nwifi.powersave = 2",
+    "stderr": ""
+  },
+  "sudo sed -i": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "sudo systemctl restart NetworkManager": {
+    "exit_code": 0,
+    "stdout": "[MOCK] NetworkManager restarted.",
+    "stderr": ""
+  },
+  "sudo resolvectl flush-caches": {
+    "exit_code": 0,
+    "stdout": "[MOCK] DNS caches flushed.",
+    "stderr": ""
+  },
+  "sudo systemctl restart systemd-resolved": {
+    "exit_code": 0,
+    "stdout": "[MOCK] systemd-resolved restarted.",
+    "stderr": ""
+  },
+  "systemctl is-active systemd-resolved": {
+    "exit_code": 0,
+    "stdout": "active",
+    "stderr": ""
+  },
+  "ping -c 4 1.1.1.1": {
+    "exit_code": 0,
+    "stdout": "PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.\n64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=8.71 ms\n64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=9.02 ms\n64 bytes from 1.1.1.1: icmp_seq=3 ttl=57 time=8.44 ms\n64 bytes from 1.1.1.1: icmp_seq=4 ttl=57 time=8.90 ms\n\n--- 1.1.1.1 ping statistics ---\n4 packets transmitted, 4 received, 0% packet loss, time 3005ms",
+    "stderr": ""
+  },
+  "resolvectl query ubuntu.com": {
+    "exit_code": 0,
+    "stdout": "ubuntu.com: 185.125.190.21 -- link: enp0s3\n            185.125.190.20 -- link: enp0s3\n\n-- Information acquired via protocol DNS in 12.4ms.",
+    "stderr": ""
+  },
+  "rfkill list": {
+    "exit_code": 0,
+    "stdout": "0: hci0: Bluetooth\n\tSoft blocked: no\n\tHard blocked: no\n1: phy0: Wireless LAN\n\tSoft blocked: no\n\tHard blocked: no",
+    "stderr": ""
+  },
+  "sudo rfkill unblock wifi": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Wireless radio unblocked.",
+    "stderr": ""
+  },
+  "sudo systemctl restart bluetooth": {
+    "exit_code": 0,
+    "stdout": "[MOCK] bluetooth.service restarted.",
+    "stderr": ""
+  },
+  "systemctl is-active bluetooth": {
+    "exit_code": 0,
+    "stdout": "active",
+    "stderr": ""
+  },
+  "bluetoothctl power on": {
+    "exit_code": 0,
+    "stdout": "Changing power on succeeded",
+    "stderr": ""
+  },
+  "bluetoothctl show": {
+    "exit_code": 0,
+    "stdout": "Controller AC:12:03:9F:2B:70 (public)\n\tName: ubuntu-vm-01\n\tPowered: yes\n\tDiscoverable: no",
+    "stderr": ""
+  },
+  "systemctl --user restart wireplumber pipewire pipewire-pulse": {
+    "exit_code": 0,
+    "stdout": "[MOCK] PipeWire stack restarted for the session user.",
+    "stderr": ""
+  },
+  "systemctl --user is-active pipewire": {
+    "exit_code": 0,
+    "stdout": "active",
+    "stderr": ""
+  },
+  "wpctl status": {
+    "exit_code": 0,
+    "stdout": "PipeWire 'pipewire-0' [1.4.2, fabian@ubuntu-vm-01, cookie:812]\n\nAudio\n \u251c\u2500 Devices:\n \u2502      44. Built-in Audio                     [alsa]\n \u251c\u2500 Sinks:\n \u2502  *   46. Built-in Audio Analog Stereo       [vol: 0.70]\n \u2502      47. Headphones                         [vol: 0.70]\n \u2514\u2500 Sources:\n     *  48. Built-in Audio Analog Stereo        [vol: 0.80]",
+    "stderr": ""
+  },
+  "wpctl set-default 47": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Default sink set to node 47.",
+    "stderr": ""
+  },
+  "pactl info": {
+    "exit_code": 0,
+    "stdout": "Server String: /run/user/1000/pulse/native\nServer Name: PulseAudio (on PipeWire 1.4.2)\nDefault Sink: alsa_output.pci-0000_00_05.0.analog-stereo\nDefault Source: alsa_input.pci-0000_00_05.0.analog-stereo",
+    "stderr": ""
+  },
+  "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Default source unmuted.",
+    "stderr": ""
+  },
+  "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.80": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Default source volume set to 0.80.",
+    "stderr": ""
+  },
+  "wpctl get-volume @DEFAULT_AUDIO_SOURCE@": {
+    "exit_code": 0,
+    "stdout": "Volume: 0.80",
+    "stderr": ""
+  },
+  "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Default sink unmuted.",
+    "stderr": ""
+  },
+  "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.70": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Default sink volume set to 0.70.",
+    "stderr": ""
+  },
+  "wpctl get-volume @DEFAULT_AUDIO_SINK@": {
+    "exit_code": 0,
+    "stdout": "Volume: 0.70",
+    "stderr": ""
+  },
+  "sudo timedatectl set-ntp true": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Network time synchronisation enabled.",
+    "stderr": ""
+  },
+  "sudo systemctl restart systemd-timesyncd": {
+    "exit_code": 0,
+    "stdout": "[MOCK] systemd-timesyncd restarted.",
+    "stderr": ""
+  },
+  "systemctl is-active systemd-timesyncd": {
+    "exit_code": 0,
+    "stdout": "active",
+    "stderr": ""
+  },
+  "timedatectl show -p NTPSynchronized --value": {
+    "exit_code": 0,
+    "stdout": "yes",
+    "stderr": ""
+  },
+  "timedatectl show -p Timezone --value": {
+    "exit_code": 0,
+    "stdout": "Europe/Zurich",
+    "stderr": ""
+  },
+  "timedatectl list-timezones": {
+    "exit_code": 0,
+    "stdout": "Europe/Vienna\nEurope/Warsaw\nEurope/Zagreb\nEurope/Zurich",
+    "stderr": ""
+  },
+  "sudo timedatectl set-timezone Europe/Zurich": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Timezone set to Europe/Zurich.",
+    "stderr": ""
+  },
+  "apt-cache policy": {
+    "exit_code": 0,
+    "stdout": "Package files:\n 100 /var/lib/dpkg/status\n     release a=now\n 500 http://ch.archive.ubuntu.com/ubuntu resolute/main amd64 Packages\n     release v=26.04,o=Ubuntu,a=resolute,n=resolute,l=Ubuntu,c=main,b=amd64",
+    "stderr": ""
+  },
+  "sudo dpkg --configure -a": {
+    "exit_code": 0,
+    "stdout": "Setting up libc-bin (2.42-0ubuntu3) ...\nProcessing triggers for man-db (2.13.1-1) ...",
+    "stderr": ""
+  },
+  "sudo dpkg --audit": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "sudo apt-get --fix-broken install -y": {
+    "exit_code": 0,
+    "stdout": "Reading package lists... Done\nBuilding dependency tree... Done\nReading state information... Done\n0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.",
+    "stderr": ""
+  },
+  "sudo apt-get check": {
+    "exit_code": 0,
+    "stdout": "Reading package lists... Done\nBuilding dependency tree... Done\nReading state information... Done",
+    "stderr": ""
+  },
+  "sudo fuser -v /var/lib/dpkg/lock-frontend": {
+    "exit_code": 0,
+    "stdout": "                     USER        PID ACCESS COMMAND\n/var/lib/dpkg/lock-frontend:\n                     root       2841 F.... unattended-upgr",
+    "stderr": ""
+  },
+  "sudo fuser /var/lib/dpkg/lock-frontend": {
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "sudo systemctl stop unattended-upgrades.service": {
+    "exit_code": 0,
+    "stdout": "[MOCK] unattended-upgrades.service stopped.",
+    "stderr": ""
+  },
+  "sudo killall -q apt apt-get": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "sudo apt update": {
+    "exit_code": 0,
+    "stdout": "Hit:1 http://ch.archive.ubuntu.com/ubuntu resolute InRelease\nGet:2 http://security.ubuntu.com/ubuntu resolute-security InRelease [126 kB]\nFetched 126 kB in 1s (118 kB/s)\nReading package lists... Done\n3 packages can be upgraded. Run 'apt list --upgradable' to see them.",
+    "stderr": ""
+  },
+  "sudo apt-get update": {
+    "exit_code": 0,
+    "stdout": "Hit:1 http://ch.archive.ubuntu.com/ubuntu resolute InRelease\nReading package lists... Done",
+    "stderr": ""
+  },
+  "busctl --user call": {
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "Call failed: Connection timed out"
+  },
+  "systemctl --user restart org.gnome.Shell@wayland.service": {
+    "exit_code": 0,
+    "stdout": "[MOCK] GNOME Shell user service restarted.",
+    "stderr": ""
+  },
+  "systemctl --user is-active org.gnome.Shell@wayland.service": {
+    "exit_code": 0,
+    "stdout": "active",
+    "stderr": ""
+  },
+  "sudo systemctl restart gdm.service": {
+    "exit_code": 0,
+    "stdout": "[MOCK] gdm.service restarted; the graphical session was recreated.",
+    "stderr": ""
+  },
+  "systemctl is-active gdm.service": {
+    "exit_code": 0,
+    "stdout": "active",
+    "stderr": ""
+  },
+  "ps -eo pid,etimes,stat,comm --sort=-etimes": {
+    "exit_code": 0,
+    "stdout": "    PID ETIMES STAT COMMAND\n   1214  48213 Ssl  gnome-shell\n   3902   6120 Dl   firefox\n   4118    832 Ss   gnome-terminal-",
+    "stderr": ""
+  },
+  "pkill -": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Signal delivered to the matching process.",
+    "stderr": ""
+  },
+  "pgrep -f firefox": {
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "gsettings get org.gnome.desktop.peripherals.touchpad tap-to-click": {
+    "exit_code": 0,
+    "stdout": "true",
+    "stderr": ""
+  },
+  "sudo modprobe -r psmouse": {
+    "exit_code": 0,
+    "stdout": "[MOCK] psmouse module unloaded.",
+    "stderr": ""
+  },
+  "sudo modprobe psmouse": {
+    "exit_code": 0,
+    "stdout": "[MOCK] psmouse module loaded.",
+    "stderr": ""
+  },
+  "lsmod": {
+    "exit_code": 0,
+    "stdout": "Module                  Size  Used by\npsmouse               217088  0\nbluetooth            1114112  8\nsnd_hda_intel         204800  1",
+    "stderr": ""
+  },
+  "libinput list-devices": {
+    "exit_code": 0,
+    "stdout": "Device:           SynPS/2 Synaptics Touchpad\nKernel:           /dev/input/event6\nGroup:            9\nTap-to-click:     enabled",
+    "stderr": ""
+  },
+  "gsettings get org.gnome.desktop.input-sources sources": {
+    "exit_code": 0,
+    "stdout": "[('xkb', 'ch')]",
+    "stderr": ""
+  },
+  "gsettings set org.gnome.desktop.input-sources sources": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "gdctl show": {
+    "exit_code": 0,
+    "stdout": "Monitors:\n\u251c\u2500\u2500 Monitor Virtual-1\n\u2502   \u251c\u2500\u2500 Vendor:  QEMU Monitor\n\u2502   \u2514\u2500\u2500 Modes:\n\u2502       \u251c\u2500\u2500 1920x1080@60.000 [current] [preferred]\n\u2502       \u2514\u2500\u2500 1280x720@60.000\n\u2514\u2500\u2500 Monitor HDMI-1\n    \u251c\u2500\u2500 Vendor:  Dell Inc.\n    \u2514\u2500\u2500 Modes:\n        \u2514\u2500\u2500 1920x1080@60.000 [preferred]\n\nLogical monitors:\n\u2514\u2500\u2500 Logical monitor #1 [primary]\n    \u2514\u2500\u2500 Monitor Virtual-1 1920x1080@60.000",
+    "stderr": ""
+  },
+  "gdctl set": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Monitor configuration applied.",
+    "stderr": ""
+  },
+  "brightnessctl set 50%": {
+    "exit_code": 0,
+    "stdout": "Updated device 'intel_backlight':\nCurrent brightness: 480 (50%)",
+    "stderr": ""
+  },
+  "brightnessctl info": {
+    "exit_code": 0,
+    "stdout": "Device 'intel_backlight' of class 'backlight':\n\tCurrent brightness: 480 (50%)\n\tMax brightness: 960",
+    "stderr": ""
+  },
+  "sudo apt clean": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "sudo journalctl --vacuum-size=50M": {
+    "exit_code": 0,
+    "stdout": "Deleted archived journal /var/log/journal/9f2b/system@0005.journal (128.0M).\nVacuuming done, freed 1.4G of archived journals.",
+    "stderr": ""
+  },
+  "df -h /": {
+    "exit_code": 0,
+    "stdout": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/vda2        49G   28G   19G  61% /",
+    "stderr": ""
+  },
+  "findmnt -no OPTIONS /": {
+    "exit_code": 0,
+    "stdout": "rw,relatime,errors=remount-ro",
+    "stderr": ""
+  },
+  "sudo mount -o remount,rw /": {
+    "exit_code": 0,
+    "stdout": "[MOCK] Root filesystem remounted read-write.",
+    "stderr": ""
+  },
+  "cancel -a": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "sudo systemctl restart cups": {
+    "exit_code": 0,
+    "stdout": "[MOCK] cups.service restarted.",
+    "stderr": ""
+  },
+  "systemctl is-active cups": {
+    "exit_code": 0,
+    "stdout": "active",
+    "stderr": ""
+  },
+  "lpstat -o": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS": {
+    "exit_code": 0,
+    "stdout": "NAME   SIZE FSTYPE MOUNTPOINTS\nvda     50G\n\u251c\u2500vda1   1G vfat   /boot/efi\n\u2514\u2500vda2  49G ext4   /\nsdb   28.7G\n\u2514\u2500sdb1 28.7G vfat",
+    "stderr": ""
+  },
+  "lsblk -o NAME,MOUNTPOINTS": {
+    "exit_code": 0,
+    "stdout": "NAME   MOUNTPOINTS\nvda\n\u251c\u2500vda1 /boot/efi\n\u2514\u2500vda2 /\nsdb\n\u2514\u2500sdb1 /run/media/fabian/USB32",
+    "stderr": ""
+  },
+  "udisksctl mount -b /dev/sdb1": {
+    "exit_code": 0,
+    "stdout": "Mounted /dev/sdb1 at /run/media/fabian/USB32",
+    "stderr": ""
+  },
+  "sudo systemctl start unattended-upgrades.service": {
+    "exit_code": 0,
+    "stdout": "[MOCK] unattended-upgrades.service started.",
+    "stderr": ""
+  },
+  "udisksctl unmount -b /dev/sdb1": {
+    "exit_code": 0,
+    "stdout": "Unmounted /dev/sdb1.",
+    "stderr": ""
+  }
 }
