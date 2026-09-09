@@ -1,0 +1,397 @@
+{
+  "dataset_version": "1.0",
+  "os": "ubuntu",
+  "purpose": "Training corpus: really easy everyday problems on an Ubuntu laptop that an expert human can fix in 30 seconds or less with a single command or quick setting change. Every case is fully resolvable by the agent on its own (expected = resolve).",
+  "test_cases": [
+    {
+      "id": "UB-001",
+      "category": "network",
+      "prompt": "Wi-Fi keeps disconnecting every few minutes",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "Wi-Fi power saving lets the adapter go to sleep under light traffic.",
+      "solution_steps": [
+        "nmcli networking off; nmcli networking on",
+        "Persist: sudo sed -i 's/wifi.powersave = 3/wifi.powersave = 2/' /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf && sudo systemctl restart NetworkManager"
+      ],
+      "description": "Instant: restart the network stack"
+    },
+    {
+      "id": "UB-002",
+      "category": "network",
+      "prompt": "Wi-Fi is connected but pages will not load, no internet",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "Stale DNS cache or the systemd-resolved service is stuck.",
+      "solution_steps": [
+        "sudo resolvectl flush-caches",
+        "sudo systemctl restart systemd-resolved; ping -c 4 1.1.1.1"
+      ],
+      "description": "Flush DNS + restart resolver"
+    },
+    {
+      "id": "UB-003",
+      "category": "network",
+      "prompt": "No Wi-Fi networks are listed at all",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "The Wi-Fi radio is soft-blocked (rfkill) or NetworkManager is stuck.",
+      "solution_steps": [
+        "rfkill list",
+        "sudo rfkill unblock wifi; sudo systemctl restart NetworkManager"
+      ],
+      "description": "Unblock the radio and restart NM"
+    },
+    {
+      "id": "UB-004",
+      "category": "network",
+      "prompt": "Temporary failure in name resolution when opening websites",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "The DNS resolver (systemd-resolved) is down or its cache is corrupted.",
+      "solution_steps": [
+        "sudo systemctl restart systemd-resolved",
+        "resolvectl status; ping -c 4 ubuntu.com"
+      ],
+      "description": "Restart resolver service"
+    },
+    {
+      "id": "UB-005",
+      "category": "bluetooth",
+      "prompt": "Bluetooth is stuck and will not turn on",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "The Bluetooth daemon (bluetoothd) hung or the adapter is blocked.",
+      "solution_steps": [
+        "sudo systemctl restart bluetooth",
+        "bluetoothctl power on"
+      ],
+      "description": "Restart Bluetooth service"
+    },
+    {
+      "id": "UB-006",
+      "category": "audio",
+      "prompt": "There is no sound at all after an update",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The audio server (PulseAudio/PipeWire) crashed or is stuck.",
+      "solution_steps": [
+        "pulseaudio -k",
+        "systemctl --user restart pipewire pipewire-pulse"
+      ],
+      "description": "Restart the audio server"
+    },
+    {
+      "id": "UB-007",
+      "category": "audio",
+      "prompt": "No sound through headphones, it still plays on the speakers",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The wrong audio output device is selected.",
+      "solution_steps": [
+        "pavucontrol --tab=output",
+        "Select the headphones as the output device"
+      ],
+      "description": "Pick the correct output in pavucontrol"
+    },
+    {
+      "id": "UB-008",
+      "category": "audio",
+      "prompt": "My microphone does not pick up my voice",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "Wrong input device selected or the microphone input is muted.",
+      "solution_steps": [
+        "pavucontrol --tab=input",
+        "Select the mic and uncheck mute"
+      ],
+      "description": "Set the right input in pavucontrol"
+    },
+    {
+      "id": "UB-009",
+      "category": "audio",
+      "prompt": "Sound is muted and the volume icon does nothing",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The master output channel is muted.",
+      "solution_steps": [
+        "amixer -D pulse sset Master unmute",
+        "amixer -D pulse sset Master 70%"
+      ],
+      "description": "Unmute from the command line"
+    },
+    {
+      "id": "UB-010",
+      "category": "time",
+      "prompt": "The clock shows the wrong time",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "NTP synchronization is disabled or the time-sync service is stuck.",
+      "solution_steps": [
+        "sudo timedatectl set-ntp true",
+        "sudo systemctl restart systemd-timesyncd; timedatectl status"
+      ],
+      "description": "Enable NTP and resync"
+    },
+    {
+      "id": "UB-011",
+      "category": "time",
+      "prompt": "apt update fails with 'Release file is not yet valid'",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "The system clock is out of sync with the repository metadata (clock ahead/behind).",
+      "solution_steps": [
+        "sudo timedatectl set-ntp true; sudo systemctl restart systemd-timesyncd",
+        "sudo apt update"
+      ],
+      "description": "Fix the clock, then update"
+    },
+    {
+      "id": "UB-012",
+      "category": "time",
+      "prompt": "The clock shows the wrong timezone",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The system timezone is set incorrectly.",
+      "solution_steps": [
+        "sudo timedatectl set-timezone Europe/Zurich",
+        "timedatectl status"
+      ],
+      "description": "Set the correct timezone"
+    },
+    {
+      "id": "UB-013",
+      "category": "packages",
+      "prompt": "E: dpkg was interrupted, you must run sudo dpkg --configure -a",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "A previous package install/upgrade was interrupted, leaving packages half-configured.",
+      "solution_steps": [
+        "sudo dpkg --configure -a",
+        "sudo apt --fix-broken install"
+      ],
+      "description": "Finish pending dpkg configuration"
+    },
+    {
+      "id": "UB-014",
+      "category": "packages",
+      "prompt": "apt says 'Unable to lock the administration directory /var/lib/dpkg/'",
+      "expected": "resolve",
+      "tier": "red",
+      "cause": "Another apt/dpkg process (Update Manager, unattended-upgrades) holds the lock.",
+      "solution_steps": [
+        "ps aux | grep -E 'apt|dpkg'",
+        "If the process is stuck, run: sudo killall apt apt-get; sudo dpkg --configure -a"
+      ],
+      "description": "Clear a stuck package-manager lock"
+    },
+    {
+      "id": "UB-015",
+      "category": "packages",
+      "prompt": "I cannot install a package, dependency errors",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "Broken/unmet package dependencies after a partial install.",
+      "solution_steps": [
+        "sudo apt --fix-broken install",
+        "sudo apt install -f"
+      ],
+      "description": "Auto-fix broken dependencies"
+    },
+    {
+      "id": "UB-016",
+      "category": "packages",
+      "prompt": "E: Unable to locate package / command not found when installing",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "Stale package lists or the package simply is not installed yet.",
+      "solution_steps": [
+        "sudo apt update",
+        "sudo apt install <package>"
+      ],
+      "description": "Refresh package lists then install"
+    },
+    {
+      "id": "UB-017",
+      "category": "packages",
+      "prompt": "Software Center / apt is broken after a failed upgrade",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "Packages left in a half-installed state after an interrupted upgrade.",
+      "solution_steps": [
+        "sudo dpkg --configure -a",
+        "sudo apt -f install; sudo apt update && sudo apt upgrade"
+      ],
+      "description": "Repair the package system"
+    },
+    {
+      "id": "UB-018",
+      "category": "desktop",
+      "prompt": "The top bar and desktop are frozen, clicks do nothing",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "GNOME Shell hung.",
+      "solution_steps": [
+        "Press Alt+F2, type 'r', press Enter",
+        "Or: killall -3 gnome-shell"
+      ],
+      "description": "Restart GNOME Shell"
+    },
+    {
+      "id": "UB-019",
+      "category": "desktop",
+      "prompt": "The whole desktop is frozen and nothing responds",
+      "expected": "resolve",
+      "tier": "red",
+      "cause": "The display/session manager is hung and the shell cannot restart itself.",
+      "solution_steps": [
+        "Press Ctrl+Alt+F2, log in, run: sudo systemctl restart gdm",
+        "Press Ctrl+Alt+F1 to switch back to the GUI"
+      ],
+      "description": "Restart the display manager"
+    },
+    {
+      "id": "UB-020",
+      "category": "desktop",
+      "prompt": "An application is frozen and will not close",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The application process is hung.",
+      "solution_steps": [
+        "xkill (then click the window)",
+        "Or: pkill -f <appname>"
+      ],
+      "description": "Kill the stuck app instantly"
+    },
+    {
+      "id": "UB-021",
+      "category": "input",
+      "prompt": "Tap to click on the touchpad does not work",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "Tap-to-click is disabled in the desktop settings.",
+      "solution_steps": [
+        "gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true",
+        "gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll false"
+      ],
+      "description": "Enable tap-to-click via gsettings"
+    },
+    {
+      "id": "UB-022",
+      "category": "input",
+      "prompt": "Touchpad stopped working after the laptop woke from sleep",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "The psmouse input module is stuck after suspend/resume.",
+      "solution_steps": [
+        "sudo modprobe -r psmouse && sudo modprobe psmouse",
+        "xinput list | grep -i touchpad"
+      ],
+      "description": "Reload the touchpad driver"
+    },
+    {
+      "id": "UB-023",
+      "category": "input",
+      "prompt": "My keyboard types the wrong letters",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The active keyboard layout is switched to another language.",
+      "solution_steps": [
+        "setxkbmap -layout ch",
+        "Or: setxkbmap -layout us"
+      ],
+      "description": "Switch the layout back"
+    },
+    {
+      "id": "UB-024",
+      "category": "display",
+      "prompt": "External monitor is not detected",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The display configuration was not refreshed after plugging in the monitor.",
+      "solution_steps": [
+        "xrandr --auto",
+        "Re-plug the cable if it still shows nothing"
+      ],
+      "description": "Force re-detect displays"
+    },
+    {
+      "id": "UB-025",
+      "category": "display",
+      "prompt": "The screen resolution is wrong or everything looks blurry",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The display is running at the wrong resolution.",
+      "solution_steps": [
+        "xrandr --listmonitors",
+        "xrandr -s 1920x1080"
+      ],
+      "description": "Set the correct resolution"
+    },
+    {
+      "id": "UB-026",
+      "category": "display",
+      "prompt": "Brightness keys do not change the screen brightness",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The backlight controls are managed by the driver; key hotkeys are not bound.",
+      "solution_steps": [
+        "brightnessctl set 50%",
+        "brightnessctl info"
+      ],
+      "description": "Set brightness from the command line"
+    },
+    {
+      "id": "UB-027",
+      "category": "storage",
+      "prompt": "The disk is almost full and updates will not install",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "Apt cache and journald logs are consuming the remaining space.",
+      "solution_steps": [
+        "sudo apt clean",
+        "sudo journalctl --vacuum-size=50M; df -h /"
+      ],
+      "description": "Free space by cleaning caches and logs"
+    },
+    {
+      "id": "UB-028",
+      "category": "storage",
+      "prompt": "Read-only file system, cannot write or save anything",
+      "expected": "resolve",
+      "tier": "red",
+      "cause": "The filesystem was mounted read-only after an unclean shutdown.",
+      "solution_steps": [
+        "sudo mount -o remount,rw /",
+        "Check for errors: sudo journalctl -p 3 -xb"
+      ],
+      "description": "Remount the root filesystem read-write"
+    },
+    {
+      "id": "UB-029",
+      "category": "peripherals",
+      "prompt": "Print jobs are stuck in the queue and nothing prints",
+      "expected": "resolve",
+      "tier": "yellow",
+      "cause": "The CUPS print service is backlogged or hung.",
+      "solution_steps": [
+        "cancel -a",
+        "sudo systemctl restart cups"
+      ],
+      "description": "Clear the queue and restart CUPS"
+    },
+    {
+      "id": "UB-030",
+      "category": "peripherals",
+      "prompt": "USB stick or external drive is not showing up",
+      "expected": "resolve",
+      "tier": "green",
+      "cause": "The device is detected but not auto-mounted, or needs mounting.",
+      "solution_steps": [
+        "lsblk",
+        "udisksctl mount -b /dev/sdX1"
+      ],
+      "description": "Find and mount the device"
+    }
+  ]
+}
