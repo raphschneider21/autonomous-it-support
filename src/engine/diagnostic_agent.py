@@ -160,3 +160,48 @@ def _assess_heuristic(diagnostics: list[dict], category: str) -> dict:
         "injection_observed": False,
         "_source": "heuristic-fallback",
     }
+
+
+def verify_fix(original_root_cause: str, command: str, reprobe: list[dict]) -> dict:
+    """Did the fix actually work?
+
+    Asked as an explicit judgement rather than inferred by comparing root-cause
+    strings. The earlier version compared the model's free-text root cause
+    before and after with `==`; those strings almost never match, so every
+    attempt looked resolved. That is a false-resolution generator, and a false
+    "resolved" is the most damaging output this system has — the user is left
+    broken and the ticket closes.
+
+    Falls back to the heuristic when no model is configured, which errs towards
+    "not resolved": escalating a fixed problem costs a technician five minutes,
+    while closing a broken one costs the user their day.
+    """
+    evidence = "\n\n".join(
+        llm.wrap_evidence(d["command"], f"exit={d['exit_code']}\n{d['stdout']}\n{d['stderr']}")
+        for d in (reprobe or [])
+    )
+
+    if evidence:
+        result = llm.call_agent(
+            "FixVerifier",
+            f"Original root cause: {original_root_cause}\n"
+            f"Command that was run: {command}\n\n"
+            f"Fresh probe output after the command:\n{evidence}",
+            expect_keys=("resolved",),
+        )
+        if result is not None:
+            return {
+                "resolved": bool(result.get("resolved")),
+                "evidence": result.get("evidence", ""),
+                "confidence": result.get("confidence", 0.5),
+                "_source": "claude",
+            }
+
+    failing = _assess_heuristic(reprobe, "unknown")
+    still_faulty = "probes reported a fault" in failing.get("evidence", "")
+    return {
+        "resolved": not still_faulty,
+        "evidence": failing.get("evidence", ""),
+        "confidence": 0.4,
+        "_source": "heuristic-fallback",
+    }

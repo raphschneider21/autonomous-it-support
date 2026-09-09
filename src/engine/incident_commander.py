@@ -7,7 +7,7 @@ from datetime import datetime
 from ..models import IncidentStatus, SafetyTier
 from ..database import insert_incident, update_incident, get_incident, insert_audit
 from .triage_agent import classify
-from .diagnostic_agent import diagnose, assess as diagnostic_assess
+from .diagnostic_agent import diagnose, assess as diagnostic_assess, verify_fix
 from .security_agent import check_action, detect_prompt_injection, assess_prompt
 from . import llm
 from .disagreement import reconcile_assessments
@@ -169,17 +169,133 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
 
         return _finalize_runbook(incident_id, runbook, events, start, tool_calls)
 
-    # No runbook found - escalate
+    # Step 5: No runbook. This is where the model earns its place — everything
+    # above could have been a lookup table. The Diagnostic Agent reasoned from
+    # raw probe output to a root cause nobody scripted; if it also proposed a
+    # fix it is confident in, try it, under exactly the same allowlist that
+    # governs a runbook step.
+    _push(incident_id, events, {
+        "agent": "IncidentCommander",
+        "message": "No runbook matched. Asking the Diagnostic Agent for a reasoned fix.",
+        "tier": "green",
+    })
+
+    novel = _attempt_novel_remediation(
+        incident_id, diag_assessment, classification["category"], events)
+    tool_calls += novel["tool_calls"]
+
+    if novel["resolved"]:
+        update_incident(incident_id, status="resolved",
+                        resolution_summary=f"Resolved without a runbook: {novel['summary']}")
+        _push(incident_id, events, {
+            "agent": "IncidentCommander",
+            "message": "Verified fixed. Resolved from first-principles diagnosis, no runbook required.",
+            "tier": "green",
+        })
+        return _with_report(incident_id, "resolved", events, start, tool_calls)
+
+    # Nothing safe and confident to try, or the attempt did not hold.
     incident = get_incident(incident_id)
     ticket = generate_escalation_ticket(incident, get_audit(incident_id))
-    update_incident(incident_id, status="escalated", resolution_summary="No matching runbook found. Escalated to Tier 2.")
+    update_incident(incident_id, status="escalated",
+                    resolution_summary=novel["summary"])
     _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket.model_dump()))
-    _push(incident_id, events, {"agent": "IncidentCommander", "message": "No runbook matched. Escalating to Tier 2 human support.", "tier": "yellow"})
+    _push(incident_id, events, {"agent": "IncidentCommander", "message": f"Escalating to Tier 2: {novel['summary']}", "tier": "yellow"})
     metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
-    result = {"status": "escalated", "events": events, "runbook_id": None, "escalation_ticket": ticket.model_dump(), "metrics": metrics}
+    result = {"status": "escalated", "events": events, "runbook_id": None,
+              "escalation_ticket": ticket.model_dump(), "metrics": metrics,
+              "attempted_command": novel.get("command")}
     store.set_result(incident_id, result)
     _report_to_monitoring(incident_id, result)
     return result
+
+
+# A proposal the Diagnostic Agent is not confident about is worth less than an
+# escalation. Mirrors the retrieval abstention gate in `runbook_matcher`: acting
+# on a weak hypothesis is the expensive mistake, not declining to act.
+MIN_PROPOSAL_CONFIDENCE = 0.6
+
+
+def _attempt_novel_remediation(incident_id: str, diag_assessment: dict,
+                               category: str, events: list) -> dict:
+    """Try the Diagnostic Agent's own proposed fix for an unscripted problem.
+
+    The proposal is model-generated text, so it is treated as exactly that: it
+    passes through the same allowlist as any other command, and a refusal is a
+    normal outcome rather than an error. Verification re-runs the read-only
+    probes and asks the agent whether its own root cause still holds — there is
+    no runbook `verification` block to lean on here.
+    """
+    command = (diag_assessment or {}).get("proposed_command")
+    confidence = (diag_assessment or {}).get("confidence") or 0.0
+
+    if not command:
+        return {"resolved": False, "tool_calls": 0, "command": None,
+                "summary": "No runbook matched and the Diagnostic Agent proposed no fix. "
+                           "Escalated to Tier 2 with the full diagnostic record."}
+
+    if confidence < MIN_PROPOSAL_CONFIDENCE:
+        _push(incident_id, events, {
+            "agent": "DiagnosticAgent",
+            "message": f"Proposed '{command}' but only {confidence:.0%} confident. "
+                       f"Below the {MIN_PROPOSAL_CONFIDENCE:.0%} floor — not acting on it.",
+            "tier": "yellow",
+        })
+        return {"resolved": False, "tool_calls": 0, "command": command,
+                "summary": f"Diagnostic Agent proposed '{command}' at {confidence:.0%} confidence, "
+                           f"below the action threshold. Escalated for human judgement."}
+
+    _push(incident_id, events, {
+        "agent": "DiagnosticAgent",
+        "message": f"Proposed fix ({confidence:.0%} confident): {command}",
+        "tier": "yellow",
+    })
+
+    approval = check_action(command)
+    if not approval["allowed"]:
+        # The demo moment worth protecting: the model proposed something and the
+        # allowlist refused it, with no human in the loop.
+        _log(incident_id, "SecurityAgent", "blocked", "red", command, approval["reason"])
+        _push(incident_id, events, {
+            "agent": "SecurityAgent",
+            "message": f"REFUSED: {command} — {approval['reason']}",
+            "tier": "red",
+        })
+        return {"resolved": False, "tool_calls": 0, "command": command,
+                "summary": f"Diagnostic Agent proposed '{command}'; the allowlist refused it. "
+                           f"Nothing was executed. Escalated to Tier 2."}
+
+    output = get_executor().run(command)
+    _log(incident_id, "DiagnosticAgent", "remediation", approval["safety_tier"], command, output["stdout"])
+    _push(incident_id, events, {"agent": "DiagnosticAgent", "message": f"Executed: {command}", "tier": approval["safety_tier"]})
+
+    # Verify by re-probing and asking explicitly whether the fault is gone.
+    # There is no runbook `verification` block to lean on here, and inferring
+    # success by comparing root-cause prose before and after does not work:
+    # those strings almost never match, so everything looked resolved.
+    reprobe = diagnose(category, get_executor())
+    verdict = verify_fix(diag_assessment.get("root_cause"), command, reprobe)
+    _log(incident_id, "DiagnosticAgent", "verification", "green", command,
+         json.dumps(verdict))
+    tool_calls = 1 + len(reprobe)
+
+    if not verdict["resolved"]:
+        _push(incident_id, events, {
+            "agent": "DiagnosticAgent",
+            "message": f"Re-checked: the fault is still present. {verdict.get('evidence', '')[:150]}",
+            "tier": "yellow",
+        })
+        return {"resolved": False, "tool_calls": tool_calls, "command": command,
+                "summary": f"Applied '{command}' but verification shows the problem persists: "
+                           f"{verdict.get('evidence', '')[:200]} Escalated with both readings."}
+
+    _push(incident_id, events, {
+        "agent": "DiagnosticAgent",
+        "message": "Re-checked after the fix: the original root cause is no longer present.",
+        "tier": "green",
+    })
+    return {"resolved": True, "tool_calls": tool_calls, "command": command,
+            "summary": f"{diag_assessment.get('root_cause')} — fixed with '{command}'"}
 
 
 def approve_action(incident_id: str, command: str) -> dict:
