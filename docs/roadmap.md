@@ -56,7 +56,7 @@
 - [x] Execute End-to-End automated test for "Stuck Print Spooler" fixture
 - [x] Execute End-to-End automated test for "Unresolvable Escalation" fixture
 - [x] Demonstrate Dual-Documentation generation upon fix (resolution report asserted in E2E)
-- [ ] Demonstrate multi-agent disagreement resolution (unit-tested; add E2E scenario or demo segment)
+- [x] Demonstrate multi-agent disagreement resolution (Infrastructure vs. Security) — E2E + demo segment 3 scenario in `tests/test_e2e.py`
 
 ---
 
