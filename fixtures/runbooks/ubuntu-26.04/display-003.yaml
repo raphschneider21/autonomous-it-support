@@ -1,0 +1,38 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-DISPLAY-003
+title: Brightness Keys Do Not Change the Screen Backlight
+target_os: ubuntu_26_04
+environment: physical-only
+source_case: UB-026
+tags:
+- display
+- brightness
+- backlight
+- brightnessctl
+- keys
+- screen
+trigger_signatures:
+  symptoms:
+  - Brightness keys do not change the screen brightness
+  - the screen brightness will not adjust
+  - the function keys for brightness do nothing
+  error_codes: []
+  process_names: []
+parameters:
+- name: level
+  description: Backlight level to apply
+  default: 50%
+remediation_steps:
+- step: 1
+  description: Set the backlight level directly
+  command: brightnessctl set {level}
+  elevation_required: false
+  timeout_seconds: 10
+verification:
+- command: brightnessctl info
+  expected_output_regex: Current brightness
+rollback_plan: []

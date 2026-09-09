@@ -1,0 +1,42 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-TIME-003
+title: System Timezone Configured Incorrectly
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-012
+tags:
+- time
+- timezone
+- clock
+- timedatectl
+- wrong-timezone
+trigger_signatures:
+  symptoms:
+  - The clock shows the wrong timezone
+  - the time is off by whole hours
+  - the timezone setting is incorrect
+  error_codes: []
+  process_names: []
+parameters:
+- name: timezone
+  description: IANA timezone for the user's location
+  default: Europe/Zurich
+remediation_steps:
+- step: 1
+  description: List the selectable timezones for the region
+  command: timedatectl list-timezones
+  elevation_required: false
+  timeout_seconds: 15
+- step: 2
+  description: Set the correct system timezone
+  command: sudo timedatectl set-timezone {timezone}
+  elevation_required: true
+  timeout_seconds: 10
+verification:
+- command: timedatectl show -p Timezone --value
+  expected_output_regex: ^Europe/Zurich
+rollback_plan: []

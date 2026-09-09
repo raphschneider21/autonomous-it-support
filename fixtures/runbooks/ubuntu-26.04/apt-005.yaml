@@ -1,0 +1,46 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-APT-005
+title: Package System Broken After a Failed Upgrade
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-017
+tags:
+- apt
+- upgrade
+- broken
+- software-center
+- repair
+- packages
+trigger_signatures:
+  symptoms:
+  - Software Center or apt is broken after a failed upgrade
+  - the package system is damaged after an interrupted upgrade
+  - apt refuses to do anything since the upgrade failed
+  error_codes: []
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Configure the packages the failed upgrade left pending
+  command: sudo dpkg --configure -a
+  elevation_required: true
+  timeout_seconds: 300
+- step: 2
+  description: Repair the broken dependency set
+  command: sudo apt-get --fix-broken install -y
+  elevation_required: true
+  timeout_seconds: 300
+- step: 3
+  description: Refresh the package lists
+  command: sudo apt-get update
+  elevation_required: true
+  timeout_seconds: 120
+verification:
+- command: sudo apt-get check
+  expected_output_regex: Reading state information
+- command: sudo dpkg --audit
+  expected_output_regex: ^$|No packages are in an inconsistent state
+rollback_plan: []

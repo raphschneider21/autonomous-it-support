@@ -24,8 +24,14 @@ __pycache__/
 venv/
 env/
 
-# Runtime Data
-data/
+# Runtime Data (incident DB, generated reports)
+# `data/*` rather than `data/` so the benchmark evidence cited by the TDD and
+# the roadmap can be un-ignored below — git does not descend into an excluded
+# directory, so a negation inside `data/` would never be reached.
+data/*
+!data/benchmarks/
+data/benchmarks/*
+!data/benchmarks/*.json
 *.db
 *.sqlite
 *.sqlite3

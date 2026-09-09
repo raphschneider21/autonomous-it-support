@@ -1,0 +1,35 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-GNOME-002
+title: Entire Desktop Session Frozen (Display Manager Hung)
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-019
+tags:
+- gnome
+- gdm
+- session
+- frozen
+- display-manager
+- unresponsive
+- desktop
+trigger_signatures:
+  symptoms:
+  - The whole desktop is frozen and nothing responds
+  - nothing responds at all, cannot switch windows or open anything
+  - the login session is completely unresponsive
+  error_codes: []
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Restart the GNOME display manager; all unsaved work in the session is lost
+  command: sudo systemctl restart gdm.service
+  elevation_required: true
+  timeout_seconds: 60
+verification:
+- command: systemctl is-active gdm.service
+  expected_output_regex: ^active
+rollback_plan: []

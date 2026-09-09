@@ -1,0 +1,49 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-TIME-002
+title: 'apt update Fails: Release File Is Not Yet Valid'
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-011
+tags:
+- apt
+- update
+- release-file
+- clock
+- time
+- repository
+- not-yet-valid
+trigger_signatures:
+  symptoms:
+  - apt update fails with Release file is not yet valid
+  - repository metadata is rejected because the clock is wrong
+  - package lists will not refresh, release file is not valid yet
+  error_codes:
+  - Release file is not yet valid
+  - E:_Release_file_is_not_valid_yet
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Re-enable network time synchronisation
+  command: sudo timedatectl set-ntp true
+  elevation_required: true
+  timeout_seconds: 10
+- step: 2
+  description: Restart the time synchronisation service
+  command: sudo systemctl restart systemd-timesyncd
+  elevation_required: true
+  timeout_seconds: 30
+- step: 3
+  description: Refresh the package lists now that the clock is correct
+  command: sudo apt update
+  elevation_required: true
+  timeout_seconds: 120
+verification:
+- command: timedatectl show -p NTPSynchronized --value
+  expected_output_regex: ^yes
+- command: apt-cache policy
+  expected_output_regex: 500 http|release |Package files
+rollback_plan: []

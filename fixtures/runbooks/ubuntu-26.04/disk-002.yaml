@@ -1,0 +1,46 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-DISK-002
+title: Root Filesystem Mounted Read-Only
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-028
+tags:
+- filesystem
+- read-only
+- remount
+- storage
+- cannot-save
+- disk
+- erofs
+trigger_signatures:
+  symptoms:
+  - Read-only file system, cannot write or save anything
+  - files cannot be saved because the filesystem is read only
+  - the system reports a read-only file system
+  error_codes:
+  - Read-only file system
+  - EROFS
+  process_names: []
+pre_checks:
+- id: check_mount_options
+  command: findmnt -no OPTIONS /
+  expected_output_regex: ^(rw|ro)
+remediation_steps:
+- step: 1
+  description: Show how the root filesystem is currently mounted
+  command: findmnt -no OPTIONS /
+  elevation_required: false
+  timeout_seconds: 10
+- step: 2
+  description: Remount the root filesystem read-write
+  command: sudo mount -o remount,rw /
+  elevation_required: true
+  timeout_seconds: 30
+verification:
+- command: findmnt -no OPTIONS /
+  expected_output_regex: ^rw
+rollback_plan: []

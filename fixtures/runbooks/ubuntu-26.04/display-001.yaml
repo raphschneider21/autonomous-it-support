@@ -1,0 +1,45 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-DISPLAY-001
+title: External Monitor Not Detected
+target_os: ubuntu_26_04
+environment: physical-only
+source_case: UB-024
+tags:
+- display
+- monitor
+- external
+- hdmi
+- second-screen
+- gdctl
+- not-detected
+trigger_signatures:
+  symptoms:
+  - External monitor is not detected
+  - the second screen stays black when plugged in
+  - the external display does not show up after connecting the cable
+  error_codes: []
+  process_names: []
+parameters:
+- name: connector
+  description: Connector name of the external monitor from `gdctl show`
+  default: HDMI-1
+remediation_steps:
+- step: 1
+  description: List the connectors and modes Mutter currently sees
+  command: gdctl show --verbose
+  elevation_required: false
+  timeout_seconds: 15
+- step: 2
+  description: Enable the external monitor to the right of the built-in panel
+  command: gdctl set --logical-monitor --primary --monitor eDP-1 --logical-monitor --monitor {connector}
+    --right-of eDP-1
+  elevation_required: false
+  timeout_seconds: 30
+verification:
+- command: gdctl show
+  expected_output_regex: HDMI-1
+rollback_plan: []

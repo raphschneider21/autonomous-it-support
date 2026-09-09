@@ -1,0 +1,34 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-INPUT-001
+title: Touchpad Tap-to-Click Is Disabled
+target_os: ubuntu_26_04
+environment: physical-only
+source_case: UB-021
+tags:
+- touchpad
+- tap-to-click
+- trackpad
+- click
+- input
+- gsettings
+trigger_signatures:
+  symptoms:
+  - Tap to click on the touchpad does not work
+  - I have to physically press the touchpad to click
+  - tap to click is not enabled
+  error_codes: []
+  process_names: []
+remediation_steps:
+- step: 1
+  description: Enable tap-to-click for the touchpad
+  command: gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true
+  elevation_required: false
+  timeout_seconds: 10
+verification:
+- command: gsettings get org.gnome.desktop.peripherals.touchpad tap-to-click
+  expected_output_regex: ^true
+rollback_plan: []

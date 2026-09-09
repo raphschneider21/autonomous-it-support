@@ -1,0 +1,46 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-DISK-001
+title: Root Disk Almost Full and Updates Will Not Install
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-027
+tags:
+- disk
+- storage
+- full
+- space
+- apt-cache
+- journal
+- cleanup
+trigger_signatures:
+  symptoms:
+  - The disk is almost full and updates will not install
+  - no space left on device
+  - the machine is running out of disk space
+  error_codes:
+  - No space left on device
+  - 'E: You don''t have enough free space'
+  process_names: []
+pre_checks:
+- id: check_root_usage
+  command: df -h /
+  expected_output_regex: '[0-9]+%'
+remediation_steps:
+- step: 1
+  description: Delete the downloaded package archives
+  command: sudo apt clean
+  elevation_required: true
+  timeout_seconds: 60
+- step: 2
+  description: Trim the systemd journal down to 50 MB
+  command: sudo journalctl --vacuum-size=50M
+  elevation_required: true
+  timeout_seconds: 60
+verification:
+- command: df -h /
+  expected_output_regex: \s[0-8]?[0-9]%\s
+rollback_plan: []

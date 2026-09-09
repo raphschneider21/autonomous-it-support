@@ -1,0 +1,44 @@
+# Ubuntu 26.04 LTS runbook — knowledge base owned by @Dev2.
+# Target endpoint: Ubuntu 26.04 LTS VM (GNOME 50 / Wayland-only, PipeWire + WirePlumber,
+# systemd-resolved, sudo-rs, uutils coreutils). Commands are Wayland-safe: no xrandr,
+# setxkbmap, xkill or wmctrl — those only reach XWayland clients on 26.04.
+schema_version: '1.1'
+runbook_id: RB-INPUT-003
+title: Keyboard Layout Switched to the Wrong Language
+target_os: ubuntu_26_04
+environment: vm-safe
+source_case: UB-023
+tags:
+- keyboard
+- layout
+- typing
+- characters
+- xkb
+- input-sources
+- language
+trigger_signatures:
+  symptoms:
+  - My keyboard types the wrong letters
+  - the keys produce the wrong characters
+  - the keyboard layout switched to another language by itself
+  error_codes: []
+  process_names: []
+parameters:
+- name: layout
+  description: xkb layout code for the user's physical keyboard
+  default: ch
+remediation_steps:
+- step: 1
+  description: Show the currently configured input sources
+  command: gsettings get org.gnome.desktop.input-sources sources
+  elevation_required: false
+  timeout_seconds: 10
+- step: 2
+  description: Set the correct keyboard layout (Wayland session, xkb source)
+  command: gsettings set org.gnome.desktop.input-sources sources "[('xkb','{layout}')]"
+  elevation_required: false
+  timeout_seconds: 10
+verification:
+- command: gsettings get org.gnome.desktop.input-sources sources
+  expected_output_regex: '''ch'''
+rollback_plan: []
