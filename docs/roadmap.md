@@ -52,11 +52,11 @@
 ---
 
 ## Milestone 3: Integrated End-to-End Prototype
-- [ ] Connect Client UI -> Core Engine -> Runbook Store
-- [ ] Execute End-to-End automated test for "Stuck Print Spooler" fixture
-- [ ] Execute End-to-End automated test for "Unresolvable Escalation" fixture
-- [ ] Demonstrate Dual-Documentation generation upon fix
-- [ ] Demonstrate multi-agent disagreement resolution (Infrastructure vs. Security)
+- [x] Connect Client UI -> Core Engine -> Runbook Store (exercised via real HTTP + SSE in `tests/test_e2e.py`)
+- [x] Execute End-to-End automated test for "Stuck Print Spooler" fixture
+- [x] Execute End-to-End automated test for "Unresolvable Escalation" fixture
+- [x] Demonstrate Dual-Documentation generation upon fix (resolution report asserted in E2E)
+- [ ] Demonstrate multi-agent disagreement resolution (unit-tested; add E2E scenario or demo segment)
 
 ---
 
