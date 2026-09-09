@@ -92,7 +92,9 @@ def build_report(incident: dict, audit: list[dict], result: dict,
             errors.append(item)
 
     metrics = result.get("metrics") or {}
-    usage = result.get("usage") or {}
+    # Token totals ride along on metrics — the commander aggregates them across
+    # the four agents as each one answers.
+    usage = result.get("usage") or metrics
 
     return {
         "incident_id": incident.get("id") or incident.get("incident_id"),

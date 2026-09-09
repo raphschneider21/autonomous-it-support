@@ -28,6 +28,8 @@ command the allowlist accepts, and it will not.
 import json
 import os
 import re
+
+from .. import config  # noqa: F401 - loads .env on import
 from dataclasses import dataclass
 from typing import Optional
 

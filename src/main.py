@@ -1,6 +1,8 @@
 import json
 import os
 import uuid
+
+from . import config  # noqa: F401 - loads .env on import
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse

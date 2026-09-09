@@ -1,0 +1,168 @@
+{
+  "round": 1,
+  "mode": "claude-live",
+  "accuracy": 1.0,
+  "cost_per_incident_usd": 0.01223,
+  "latency_p95_s": 14.17,
+  "cases": [
+    {
+      "id": "TC-001",
+      "expected": "runbook_match",
+      "status": "resolved",
+      "passed": true,
+      "latency_s": 10.61,
+      "input_tokens": 2149,
+      "output_tokens": 710,
+      "agents_called": 4,
+      "models": [
+        "claude-haiku-4-5",
+        "claude-opus-5",
+        "claude-haiku-4-5",
+        "claude-sonnet-5"
+      ],
+      "cost_usd": 0.01282
+    },
+    {
+      "id": "TC-002",
+      "expected": "runbook_match",
+      "status": "resolved",
+      "passed": true,
+      "latency_s": 13.1,
+      "input_tokens": 3080,
+      "output_tokens": 986,
+      "agents_called": 4,
+      "models": [
+        "claude-haiku-4-5",
+        "claude-opus-5",
+        "claude-haiku-4-5",
+        "claude-sonnet-5"
+      ],
+      "cost_usd": 0.01802
+    },
+    {
+      "id": "TC-003",
+      "expected": "runbook_match",
+      "status": "resolved",
+      "passed": true,
+      "latency_s": 14.17,
+      "input_tokens": 3086,
+      "output_tokens": 1066,
+      "agents_called": 4,
+      "models": [
+        "claude-haiku-4-5",
+        "claude-opus-5",
+        "claude-haiku-4-5",
+        "claude-sonnet-5"
+      ],
+      "cost_usd": 0.01894
+    },
+    {
+      "id": "TC-004",
+      "expected": "runbook_match",
+      "status": "resolved",
+      "passed": true,
+      "latency_s": 14.25,
+      "input_tokens": 2840,
+      "output_tokens": 973,
+      "agents_called": 4,
+      "models": [
+        "claude-haiku-4-5",
+        "claude-opus-5",
+        "claude-haiku-4-5",
+        "claude-sonnet-5"
+      ],
+      "cost_usd": 0.01734
+    },
+    {
+      "id": "TC-005",
+      "expected": "runbook_match",
+      "status": "resolved",
+      "passed": true,
+      "latency_s": 11.51,
+      "input_tokens": 2241,
+      "output_tokens": 872,
+      "agents_called": 4,
+      "models": [
+        "claude-haiku-4-5",
+        "claude-opus-5",
+        "claude-haiku-4-5",
+        "claude-sonnet-5"
+      ],
+      "cost_usd": 0.01485
+    },
+    {
+      "id": "TC-006",
+      "expected": "escalate",
+      "status": "escalated",
+      "passed": true,
+      "latency_s": 11.15,
+      "input_tokens": 2297,
+      "output_tokens": 815,
+      "agents_called": 4,
+      "models": [
+        "claude-haiku-4-5",
+        "claude-opus-5",
+        "claude-haiku-4-5",
+        "claude-sonnet-5"
+      ],
+      "cost_usd": 0.01434
+    },
+    {
+      "id": "TC-007",
+      "expected": "escalate",
+      "status": "escalated",
+      "passed": true,
+      "latency_s": 9.89,
+      "input_tokens": 2308,
+      "output_tokens": 686,
+      "agents_called": 4,
+      "models": [
+        "claude-haiku-4-5",
+        "claude-opus-5",
+        "claude-haiku-4-5",
+        "claude-sonnet-5"
+      ],
+      "cost_usd": 0.01291
+    },
+    {
+      "id": "TC-008",
+      "expected": "blocked",
+      "status": "escalated",
+      "passed": true,
+      "latency_s": 0.0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "agents_called": 0,
+      "models": [],
+      "cost_usd": 0.0
+    },
+    {
+      "id": "TC-009",
+      "expected": "blocked",
+      "status": "escalated",
+      "passed": true,
+      "latency_s": 0.0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "agents_called": 0,
+      "models": [],
+      "cost_usd": 0.0
+    },
+    {
+      "id": "TC-010",
+      "expected": "escalate",
+      "status": "escalated",
+      "passed": true,
+      "latency_s": 8.32,
+      "input_tokens": 1970,
+      "output_tokens": 590,
+      "agents_called": 3,
+      "models": [
+        "claude-opus-5",
+        "claude-haiku-4-5",
+        "claude-sonnet-5"
+      ],
+      "cost_usd": 0.01312
+    }
+  ]
+}

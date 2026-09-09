@@ -19,6 +19,9 @@ from ..integrations import monitoring_client
 from ..documentation.report_generator import generate_report
 from ..executors.factory import get_executor
 
+# Per-incident token totals, read back when the result is assembled.
+_usage_by_incident: dict[str, dict] = {}
+
 
 def _emit(incident_id: str, event: dict):
     """Push a single event to the incident's live SSE stream."""
@@ -29,6 +32,28 @@ def _push(incident_id: str, events: list, event: dict):
     """Append to the events list AND push to the live SSE stream."""
     events.append(event)
     _emit(incident_id, event)
+
+
+def _collect_usage(*agent_results) -> dict:
+    """Sum token usage across the agents that ran this incident.
+
+    Each agent result carries `_usage` when Claude answered and omits it when
+    the deterministic fallback ran, so the totals are a measurement of what the
+    model actually cost — not an estimate — and `agents_called` records how many
+    of the four used the model at all.
+    """
+    total = {"input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0,
+             "agents_called": 0, "models": []}
+    for result in agent_results:
+        usage = (result or {}).get("_usage")
+        if not usage:
+            continue
+        total["input_tokens"] += usage.get("input_tokens", 0)
+        total["output_tokens"] += usage.get("output_tokens", 0)
+        total["cache_read_input_tokens"] += usage.get("cache_read_input_tokens", 0)
+        total["agents_called"] += 1
+        total["models"].append(usage.get("model"))
+    return total
 
 
 def run_incident(incident_id: str, user_prompt: str) -> dict:
@@ -95,6 +120,8 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
         sec_assessment["root_cause"] = diag_assessment["root_cause"]
 
     reconciliation = _reconcile(diag_assessment, sec_assessment)
+    usage = _collect_usage(classification, diag_assessment, sec_assessment, reconciliation)
+    _usage_by_incident[incident_id] = usage
 
     if reconciliation.get("disagreement"):
         _log(incident_id, "IncidentCommander", "disagreement", "yellow", None, reconciliation["detail"])
@@ -302,10 +329,15 @@ def _save_report(incident_id: str, report: str) -> str:
 
 def _log_metrics(incident_id: str, status: str, start: float, tool_calls: int) -> dict:
     latency_ms = round((time.perf_counter() - start) * 1000, 1)
+    usage = _usage_by_incident.pop(incident_id, None) or {}
     metrics = {
         "status": status,
         "latency_ms": latency_ms,
         "tool_calls": tool_calls,
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+        "agents_called": usage.get("agents_called", 0),
+        "models": usage.get("models", []),
     }
     insert_audit({
         "incident_id": incident_id,
