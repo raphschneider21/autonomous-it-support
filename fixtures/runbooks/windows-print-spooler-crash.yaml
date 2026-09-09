@@ -1,7 +1,7 @@
 schema_version: "1.0"
 runbook_id: "RB-PRINT-001"
 title: "Clear Stuck Windows Print Spooler Queue"
-target_os: "linux"
+target_os: "windows_11"
 tags: ["printer", "spooler", "print-job-stuck", "offline"]
 
 trigger_signatures:
@@ -22,7 +22,7 @@ remediation_steps:
     timeout_seconds: 15
   - step: 2
     description: "Delete stuck files from spool folder"
-    command: "Remove-Item -Path /var/spool/cups/* -Force -ErrorAction SilentlyContinue"
+    command: 'Remove-Item -Path $env:SystemRoot\System32\spool\PRINTERS\* -Force -ErrorAction SilentlyContinue'
     elevation_required: true
     timeout_seconds: 10
   - step: 3
