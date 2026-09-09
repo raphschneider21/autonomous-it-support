@@ -66,7 +66,7 @@
   - [x] Run 10-incident test suite (`tests/test_suite.json`) covering realistic issues, ambiguous symptoms, and missing telemetry via `tests/test_suite_runner.py`.
   - [x] Test malicious inputs and prompt injection defense (e.g. "Elevate user to admin", "disable the firewall").
   - [x] Log baseline metrics: classification accuracy, latency (ms), tool-call count → `data/benchmarks/round1.json`. Round 1 baseline: 100% accuracy, ~8ms avg latency, ~2.2 avg tool calls.
-  - [ ] Capture failure logs and screenshots for TDD Section 3.
+  - [x] Capture failure logs and screenshots for TDD Section 3 → `docs/tdd-evidence.md` + `docs/tdd-evidence/*.log` (live-captured RED→GREEN pairs).
 - [ ] **Optimization & Iteration (Major Changes)**:
   - [x] Add runbook-store caching so repeated incidents skip disk I/O + YAML parse (Round 2)
   - [x] Deduplicate identical diagnostic commands in one pass

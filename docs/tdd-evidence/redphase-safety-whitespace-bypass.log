@@ -1,0 +1,53 @@
+FFFF..............                                                       [100%]
+=================================== FAILURES ===================================
+_______________ test_red_command_with_obfuscated_spacing_blocked _______________
+
+    def test_red_command_with_obfuscated_spacing_blocked():
+        _fresh_db()
+        try:
+            incident_id = _start_awaiting_incident("Print jobs are stuck in the queue")
+            result = approve_action(incident_id, "net    user   evil   /add")
+>           assert result["status"] == "blocked"
+E           AssertionError: assert 'escalated' == 'blocked'
+E             
+E             - blocked
+E             + escalated
+
+tests/test_approval_gate.py:70: AssertionError
+____________________ test_multi_space_red_command_still_red ____________________
+
+    def test_multi_space_red_command_still_red():
+        # 'net    user   alice   /add' -> admin account creation must stay blocked
+>       assert validate_command("net    user   alice   /add") == SafetyTier.RED
+E       AssertionError: assert <SafetyTier.GREEN: 'green'> == <SafetyTier.RED: 'red'>
+E         
+E         - red
+E         + green
+
+tests/test_safety_validator.py:8: AssertionError
+__________________ test_multi_space_remove_windows_still_red ___________________
+
+    def test_multi_space_remove_windows_still_red():
+>       assert validate_command("Remove-Item    -Path    C:\\Windows     -Recurse") == SafetyTier.RED
+E       AssertionError: assert <SafetyTier.YELLOW: 'yellow'> == <SafetyTier.RED: 'red'>
+E         
+E         - red
+E         + yellow
+
+tests/test_safety_validator.py:13: AssertionError
+________________________ test_tab_separated_red_command ________________________
+
+    def test_tab_separated_red_command():
+>       assert validate_command("net\tuser\talice\t/add") == SafetyTier.RED
+E       AssertionError: assert <SafetyTier.GREEN: 'green'> == <SafetyTier.RED: 'red'>
+E         
+E         - red
+E         + green
+
+tests/test_safety_validator.py:17: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_approval_gate.py::test_red_command_with_obfuscated_spacing_blocked
+FAILED tests/test_safety_validator.py::test_multi_space_red_command_still_red
+FAILED tests/test_safety_validator.py::test_multi_space_remove_windows_still_red
+FAILED tests/test_safety_validator.py::test_tab_separated_red_command - Asser...
+4 failed, 14 passed in 0.13s

@@ -1,0 +1,219 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+______________________ test_failed_verification_escalates ______________________
+
+    def test_failed_verification_escalates():
+        _fresh_db()
+        try:
+            runbook = {
+                "runbook_id": "RB-FAIL-001",
+                "title": "Never Passing Runbook",
+                "verification": [{"command": "echo whatever", "expected_output_regex": "NEVER_MATCHES"}],
+            }
+            incident_id = f"VERIFY-FAIL-{uuid.uuid4().hex[:6].upper()}"
+            db.insert_incident(incident_id, "test prompt")
+>           result = _finalize_runbook(incident_id, runbook, [], 0.0, 0)
+
+tests/test_verification.py:65: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/engine/incident_commander.py:204: in _finalize_runbook
+    ticket = generate_escalation_ticket(incident, get_audit(incident_id))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+incident = {'category': None, 'created_at': '2026-09-09T06:32:03.084932', 'hostname': None, 'id': 'VERIFY-FAIL-1A0FF7', ...}
+audit_entries = [{'action_type': 'verification', 'agent_name': 'DiagnosticAgent', 'command_executed': 'echo whatever', 'id': 1, ...}]
+
+    def generate_escalation_ticket(incident: dict, audit_entries: list[dict]) -> EscalationTicket:
+        """Build a typed Tier 2/3 escalation ticket from an incident and its audit trail."""
+        attempted = []
+        for entry in audit_entries:
+            if entry.get("action_type") in ("remediation", "diagnosis"):
+                attempted.append(AttemptedRemediation(
+                    action=entry.get("command_executed", "N/A"),
+                    result="Success" if entry.get("output") else "No output",
+                    verification_outcome=entry.get("output", ""),
+                ))
+    
+        return EscalationTicket(
+            ticket_title=f"Escalation: {incident.get('category', 'Unknown')} issue on {incident.get('hostname', 'Unknown')}",
+            requester=Requester(
+                username="endpoint-user",
+                department="unknown",
+            ),
+>           device_telemetry=DeviceTelemetry(
+                hostname=incident.get("hostname", "Unknown"),
+                os_version=incident.get("os_version", "Unknown"),
+            ),
+            issue_context=IssueContext(
+                user_reported_symptom=incident.get("user_prompt", ""),
+                attempted_remediations=attempted,
+                agent_assessment=incident.get(
+                    "resolution_summary"
+                ) or "Unable to resolve. Requires Tier 2 specialist.",
+            ),
+            incident_id=incident.get("id", ""),
+        )
+E       pydantic_core._pydantic_core.ValidationError: 2 validation errors for DeviceTelemetry
+E       hostname
+E         Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.9/v/string_type
+E       os_version
+E         Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.9/v/string_type
+
+src/integrations/escalation.py:27: ValidationError
+___________________ test_unresolvable_escalation_through_api ___________________
+
+client = <starlette.testclient.TestClient object at 0x109f22fe0>
+
+    def test_unresolvable_escalation_through_api(client):
+>       incident_id = _create(client, ESCALATE_PROMPT)
+
+tests/test_e2e.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_e2e.py:79: in _create
+    resp = client.post("/api/incidents", json={"user_prompt": prompt})
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/testclient.py:597: in post
+    return super().post(
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/httpx/_client.py:1145: in post
+    return self.request(
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/testclient.py:488: in request
+    return super().request(
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/httpx/_client.py:827: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/httpx/_client.py:1015: in _send_single_request
+    response = transport.handle_request(request)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/testclient.py:381: in handle_request
+    raise exc
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/testclient.py:378: in handle_request
+    portal.call(self.app, scope, receive, send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/anyio/from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+../../../.pyenv/versions/3.10.12/lib/python3.10/concurrent/futures/_base.py:458: in result
+    return self.__get_result()
+../../../.pyenv/versions/3.10.12/lib/python3.10/concurrent/futures/_base.py:403: in __get_result
+    raise self._exception
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/anyio/from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/fastapi/applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/middleware/errors.py:187: in __call__
+    raise exc
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/middleware/errors.py:165: in __call__
+    await self.app(scope, receive, _send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/middleware/exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/_exception_handler.py:62: in wrapped_app
+    raise exc
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/_exception_handler.py:51: in wrapped_app
+    await app(scope, receive, sender)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/routing.py:715: in __call__
+    await self.middleware_stack(scope, receive, send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/routing.py:735: in app
+    await route.handle(scope, receive, send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/routing.py:288: in handle
+    await self.app(scope, receive, send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/routing.py:76: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/_exception_handler.py:62: in wrapped_app
+    raise exc
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/_exception_handler.py:51: in wrapped_app
+    await app(scope, receive, sender)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/routing.py:74: in app
+    await response(scope, receive, send)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/responses.py:156: in __call__
+    await self.background()
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/background.py:41: in __call__
+    await task()
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/background.py:28: in __call__
+    await run_in_threadpool(self.func, *self.args, **self.kwargs)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/concurrency.py:39: in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/anyio/to_thread.py:65: in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/anyio/_backends/_asyncio.py:2706: in run_sync_in_worker_thread
+    return await future
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/anyio/_backends/_asyncio.py:1100: in run
+    result = context.run(func, *args)
+src/engine/incident_commander.py:127: in run_incident
+    ticket = generate_escalation_ticket(incident, get_audit(incident_id))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+incident = {'category': 'unknown', 'created_at': '2026-09-09T06:32:03.110865', 'hostname': None, 'id': 'INC-4C92E436', ...}
+audit_entries = [{'action_type': 'input_check', 'agent_name': 'SecurityAgent', 'command_executed': None, 'id': 1, ...}, {'action_type'...: 3, ...}, {'action_type': 'diagnosis', 'agent_name': 'DiagnosticAgent', 'command_executed': 'ipconfig', 'id': 4, ...}]
+
+    def generate_escalation_ticket(incident: dict, audit_entries: list[dict]) -> EscalationTicket:
+        """Build a typed Tier 2/3 escalation ticket from an incident and its audit trail."""
+        attempted = []
+        for entry in audit_entries:
+            if entry.get("action_type") in ("remediation", "diagnosis"):
+                attempted.append(AttemptedRemediation(
+                    action=entry.get("command_executed", "N/A"),
+                    result="Success" if entry.get("output") else "No output",
+                    verification_outcome=entry.get("output", ""),
+                ))
+    
+        return EscalationTicket(
+            ticket_title=f"Escalation: {incident.get('category', 'Unknown')} issue on {incident.get('hostname', 'Unknown')}",
+            requester=Requester(
+                username="endpoint-user",
+                department="unknown",
+            ),
+>           device_telemetry=DeviceTelemetry(
+                hostname=incident.get("hostname", "Unknown"),
+                os_version=incident.get("os_version", "Unknown"),
+            ),
+            issue_context=IssueContext(
+                user_reported_symptom=incident.get("user_prompt", ""),
+                attempted_remediations=attempted,
+                agent_assessment=incident.get(
+                    "resolution_summary"
+                ) or "Unable to resolve. Requires Tier 2 specialist.",
+            ),
+            incident_id=incident.get("id", ""),
+        )
+E       pydantic_core._pydantic_core.ValidationError: 2 validation errors for DeviceTelemetry
+E       hostname
+E         Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.9/v/string_type
+E       os_version
+E         Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.9/v/string_type
+
+src/integrations/escalation.py:27: ValidationError
+=============================== warnings summary ===============================
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/testclient.py:40
+  /Users/raphschneider/.pyenv/versions/3.10.12/lib/python3.10/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+src/main.py:17
+  /Users/raphschneider/Documents/Default Project/autonomous-it-support/tests/../src/main.py:17: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+../../../.pyenv/versions/3.10.12/lib/python3.10/site-packages/fastapi/applications.py:4495
+  /Users/raphschneider/.pyenv/versions/3.10.12/lib/python3.10/site-packages/fastapi/applications.py:4495: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_verification.py::test_failed_verification_escalates - pydan...
+FAILED tests/test_e2e.py::test_unresolvable_escalation_through_api - pydantic...
+2 failed, 3 warnings in 0.47s
