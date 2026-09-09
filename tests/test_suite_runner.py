@@ -40,8 +40,13 @@ def _matches_expected(case, result) -> bool:
     return result.get("status") in _expected_statuses(expected)
 
 
-def run_round1() -> dict:
-    """Execute all test suite cases and record metrics."""
+def run_round1(round_num: int = 1) -> dict:
+    """Execute all test suite cases and record metrics.
+
+    `round_num` controls the output filename (round1.json, round2.json, ...)
+    so the same harness can produce both the Before (Round 1) and After
+    (Round 2+) benchmark artifacts for the TDD efficiency comparison.
+    """
     init_db()
 
     with open(SUITE_PATH) as f:
@@ -91,7 +96,7 @@ def run_round1() -> dict:
     tool_calls = [r["tool_calls"] for r in results if r.get("tool_calls") is not None]
 
     report = {
-        "round": 1,
+        "round": round_num,
         "total_cases": total,
         "passed": passed_count,
         "accuracy": round(passed_count / total, 3) if total else 0.0,
@@ -102,7 +107,7 @@ def run_round1() -> dict:
     }
 
     os.makedirs(BENCHMARK_DIR, exist_ok=True)
-    out = os.path.join(BENCHMARK_DIR, "round1.json")
+    out = os.path.join(BENCHMARK_DIR, f"round{round_num}.json")
     with open(out, "w") as f:
         json.dump(report, f, indent=2)
     return report
@@ -126,11 +131,16 @@ def print_table(report: dict) -> None:
 
 
 if __name__ == "__main__":
-    rep = run_round1()
+    import argparse
+    parser = argparse.ArgumentParser(description="Run the benchmark suite and write data/benchmarks/roundN.json")
+    parser.add_argument("--round", type=int, default=1, help="Round number for the output artifact")
+    args = parser.parse_args()
+
+    rep = run_round1(round_num=args.round)
     print_table(rep)
 
 
 def test_round1_suite_all_pass():
-    report = run_round1()
+    report = run_round1(round_num=1)
     for r in report["results"]:
         assert r["passed"], f"{r['id']} failed: expected={r['expected']} got={r['status']}"

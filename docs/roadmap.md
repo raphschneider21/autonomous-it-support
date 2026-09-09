@@ -68,12 +68,15 @@
   - [x] Log baseline metrics: classification accuracy, latency (ms), tool-call count → `data/benchmarks/round1.json`. Round 1 baseline: 100% accuracy, ~8ms avg latency, ~2.2 avg tool calls.
   - [ ] Capture failure logs and screenshots for TDD Section 3.
 - [ ] **Optimization & Iteration (Major Changes)**:
-  - Refine agent prompts, model configurations, and tool routing based on Round 1 failures.
-  - Implement caching/early-exit logic to reduce latency and token consumption.
-  - Document rationale and changes with peer/expert citations for TDD Section 4.
+  - [x] Add runbook-store caching so repeated incidents skip disk I/O + YAML parse (Round 2)
+  - [x] Deduplicate identical diagnostic commands in one pass
+  - [ ] Refine agent prompts, model configurations, and tool routing based on Round 1 failures.
+  - [ ] Implement caching/early-exit logic to reduce latency and token consumption.
+  - [ ] Document rationale and changes with peer/expert citations for TDD Section 4.
 - [ ] **Round 2 Testing (Performance & Hardened Guardrails)**:
-  - Re-run test suite and measure outcome improvements.
-  - Generate comparative Before-vs-After benchmark table for TDD Section 5.
+  - [x] Re-run test suite and measure outcome improvements.
+  - [x] Generate comparative Before-vs-After benchmark table for TDD Section 5 → `docs/benchmark-round2.md`.
+  - [x] Round 2 result: 100% accuracy, **3.3 ms avg (**-49%)**, 2.22 tool calls.
 
 ---
 

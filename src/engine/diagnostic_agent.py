@@ -26,9 +26,12 @@ def assess(diagnostics: list[dict], category: str) -> dict:
 
 def diagnose(category: str, executor: IExecutor) -> list[dict]:
     commands = _get_diagnostic_commands(category)
+    # Deduplicate identical commands so we never run the same probe twice
+    seen: set[str] = set()
+    unique_commands = [c for c in commands if not (c in seen or seen.add(c))]
     results = []
 
-    for cmd in commands:
+    for cmd in unique_commands:
         tier = validate_command(cmd)
         if tier == SafetyTier.GREEN:
             output = executor.run(cmd)

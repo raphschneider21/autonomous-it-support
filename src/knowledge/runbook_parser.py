@@ -5,20 +5,54 @@ from typing import Optional
 
 RUNBOOKS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "runbooks")
 
+# --- Cache: avoid re-reading + re-parsing YAML from disk on every incident ---
+_cached_runbooks: list[dict] = None
+_cache_mtime: float = None
+
 
 def load_runbook(yaml_path: str) -> dict:
     with open(yaml_path, "r") as f:
         return yaml.safe_load(f)
 
 
-def load_all_runbooks() -> list[dict]:
-    runbooks = []
+def _runbooks_changed() -> bool:
+    """Return True if any runbook YAML file changed on disk since we cached."""
     if not os.path.exists(RUNBOOKS_DIR):
-        return runbooks
-    for filename in os.listdir(RUNBOOKS_DIR):
-        if filename.endswith((".yaml", ".yml")):
-            path = os.path.join(RUNBOOKS_DIR, filename)
-            runbooks.append(load_runbook(path))
+        return _cached_runbooks is not None
+    latest = max(
+        (os.path.getmtime(os.path.join(RUNBOOKS_DIR, f))
+         for f in os.listdir(RUNBOOKS_DIR) if f.endswith((".yaml", ".yml"))),
+        default=0.0,
+    )
+    return latest > _cache_mtime
+
+
+def load_all_runbooks() -> list[dict]:
+    """Load (and cache) all runbooks from disk.
+
+    The first call reads and parses every YAML file. Subsequent calls reuse
+    the cached list until a runbook file changes on disk. This removes a
+    repeated disk-I/O + parse cost per incident (the matcher calls this on
+    every incident).
+    """
+    global _cached_runbooks, _cache_mtime
+
+    if _cached_runbooks is not None and not _runbooks_changed():
+        return _cached_runbooks
+
+    runbooks = []
+    if os.path.exists(RUNBOOKS_DIR):
+        for filename in os.listdir(RUNBOOKS_DIR):
+            if filename.endswith((".yaml", ".yml")):
+                path = os.path.join(RUNBOOKS_DIR, filename)
+                runbooks.append(load_runbook(path))
+
+    _cached_runbooks = runbooks
+    _cache_mtime = max(
+        (os.path.getmtime(os.path.join(RUNBOOKS_DIR, f))
+         for f in os.listdir(RUNBOOKS_DIR) if f.endswith((".yaml", ".yml"))),
+        default=0.0,
+    )
     return runbooks
 
 
