@@ -67,42 +67,76 @@ def test_mock_executor_custom_fixtures(tmp_path):
 
 
 # --- RealExecutor Tests ---
+#
+# RealExecutor no longer runs a shell and refuses anything the allowlist denies.
+# The old tests here drove it with `echo hello`, `sleep 10` and `python3 -c ...`
+# — none of which are allowlisted, and `python3` is explicitly forbidden because
+# it is arbitrary code execution. They were testing that a shell ran, which is
+# the property we deliberately removed.
 
-def test_real_executor_runs_simple_command():
-    executor = RealExecutor()
-    result = executor.run("echo hello")
+
+def test_real_executor_runs_an_allowlisted_command():
+    result = RealExecutor().run("uname -a")
     assert result["exit_code"] == 0
-    assert "hello" in result["stdout"]
-    assert result["stderr"] == ""
+    assert result["stdout"].strip()
+    assert result["refused"] is False
 
 
-def test_real_executor_captures_stderr():
-    executor = RealExecutor()
-    result = executor.run("python3 -c \"import sys; sys.stderr.write('err_msg')\"")
-    assert result["exit_code"] == 0
-    assert "err_msg" in result["stderr"]
+def test_real_executor_refuses_a_denied_command():
+    """The executor re-checks, so a caller that skips the gate still cannot run this."""
+    result = RealExecutor().run("rm -rf /")
+    assert result["refused"] is True
+    assert result["exit_code"] == -1
+    assert "REFUSED BY SAFETY LAYER" in result["stderr"]
 
 
-def test_real_executor_nonzero_exit():
-    executor = RealExecutor()
-    result = executor.run("python3 -c \"exit(1)\"")
-    assert result["exit_code"] == 1
+def test_real_executor_refuses_a_chained_payload():
+    result = RealExecutor().run("df -h; cat /etc/shadow")
+    assert result["refused"] is True
+    assert result["stdout"] == ""
 
 
-def test_real_executor_timeout():
-    executor = RealExecutor()
-    result = executor.run("sleep 10", timeout=1)
+def test_real_executor_never_invokes_a_shell(monkeypatch):
+    """The property that makes metacharacters inert. Asserted directly."""
+    seen = {}
+
+    class _Completed:
+        returncode, stdout, stderr = 0, "", ""
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = argv
+        seen["kwargs"] = kwargs
+        return _Completed()
+
+    monkeypatch.setattr("src.executors.real_executor.subprocess.run", fake_run)
+    RealExecutor().run("df -h /")
+
+    assert isinstance(seen["argv"], list), "command must be an argument list, not a string"
+    assert seen["argv"] == ["df", "-h", "/"]
+    assert seen["kwargs"]["shell"] is False
+
+
+def test_real_executor_timeout(monkeypatch):
+    import subprocess
+
+    def fake_run(*a, **kw):
+        raise subprocess.TimeoutExpired(cmd="uname", timeout=1)
+
+    monkeypatch.setattr("src.executors.real_executor.subprocess.run", fake_run)
+    result = RealExecutor().run("uname -a", timeout=1)
     assert result["exit_code"] == -1
     assert "timed out" in result["stderr"].lower()
 
 
-def test_real_executor_invalid_command():
-    executor = RealExecutor()
-    result = executor.run("nonexistent_command_xyz_12345")
-    assert result["exit_code"] != 0
-    assert result["stderr"] != ""
+def test_real_executor_missing_binary(monkeypatch):
+    def fake_run(*a, **kw):
+        raise FileNotFoundError()
+
+    monkeypatch.setattr("src.executors.real_executor.subprocess.run", fake_run)
+    result = RealExecutor().run("systemctl is-active nginx")
+    assert result["exit_code"] == -1
+    assert "not found" in result["stderr"].lower()
 
 
 def test_real_executor_implements_interface():
-    executor = RealExecutor()
-    assert isinstance(executor, IExecutor)
+    assert isinstance(RealExecutor(), IExecutor)
