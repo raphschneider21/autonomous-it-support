@@ -40,9 +40,12 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
     if detect_prompt_injection(user_prompt):
         _log(incident_id, "SecurityAgent", "blocked", "red", None, "Prompt injection detected")
         _push(incident_id, events, {"agent": "SecurityAgent", "message": "ALERT: Prompt injection attempt detected and blocked.", "tier": "red"})
+        incident = get_incident(incident_id)
+        ticket = generate_escalation_ticket(incident, get_audit(incident_id))
         update_incident(incident_id, status="escalated", resolution_summary="Prompt injection detected. Incident escalated.")
+        _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket.model_dump()))
         metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
-        result = {"status": "escalated", "events": events, "runbook_id": None, "metrics": metrics}
+        result = {"status": "escalated", "events": events, "runbook_id": None, "escalation_ticket": ticket.model_dump(), "metrics": metrics}
         store.set_result(incident_id, result)
         return result
 

@@ -164,6 +164,7 @@ def test_prompt_injection_blocked_through_api(client):
     assert any("ALERT" in m and "injection" in m.lower() for m in messages), messages
 
     assert frames[-1]["data"]["status"] == "escalated"
+    assert frames[-1]["data"]["escalation_ticket"] is not None
 
     detail = client.get(f"/api/incidents/{incident_id}").json()
     assert not any(e["action_type"] == "remediation" for e in detail["audit_log"])
