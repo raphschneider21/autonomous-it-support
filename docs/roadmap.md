@@ -87,5 +87,6 @@
   - [ ] Complete Sections 1 through 8 adhering to template requirements and continuous evidence logs.
   - [ ] Add AI-use disclosure (Section 7) reflecting on development tools and safety/security controls.
 - [ ] **Live Demonstration Dry-Runs**:
+  - [x] Build dry-run gate `tests/test_demo_dryrun.py` (health, runbook store, UI assets, engine segments; verdict READY TO RECORD) + protocol `docs/demo-dryrun.md`
   - [ ] Rehearse the 15-minute live demonstration adhering to the cadence in [`.agents/rules/live-demo-spec.md`](../.agents/rules/live-demo-spec.md).
-  - [ ] Verify seamless execution of the live incident, under-the-hood traces, human approval modal, prompt injection block, and results summary.
+  - [ ] Verify seamless execution of the live incident, under-the-hood traces, human approval modal, prompt injection block, and results summary (record final take).

@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from .models import IncidentCreate
 from .database import init_db, get_incident, get_audit_log, get_all_runbooks
+from .knowledge.runbook_parser import seed_runbooks_db
 from .engine.incident_commander import run_incident, approve_action
 from .engine.event_stream import store
 
@@ -17,6 +18,7 @@ CLIENT_DIR = os.path.join(os.path.dirname(__file__), "client")
 @app.on_event("startup")
 def startup():
     init_db()
+    seed_runbooks_db()
 
 
 @app.get("/api/health")

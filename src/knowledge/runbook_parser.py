@@ -68,3 +68,18 @@ def runbook_to_db_format(rb: dict) -> dict:
         "verification": json.dumps(rb.get("verification", [])),
         "rollback_plan": json.dumps(rb.get("rollback_plan", [])),
     }
+
+
+def seed_runbooks_db() -> int:
+    """Sync the YAML fixture runbooks into the SQLite `runbooks` table.
+
+    The engine matches against the YAML store; this keeps the database view
+    (exposed via GET /api/runbooks) consistent with it. Idempotent
+    (INSERT OR REPLACE). Returns the number of runbooks seeded.
+    """
+    from ..database import insert_runbook
+
+    runbooks = load_all_runbooks()
+    for rb in runbooks:
+        insert_runbook(runbook_to_db_format(rb))
+    return len(runbooks)
