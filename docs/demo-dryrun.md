@@ -8,7 +8,7 @@
 ## 0. Pre-flight checklist (once per session)
 - [ ] `python -m pytest tests/ -q` → **92 passed**
 - [ ] `python tests/test_demo_dryrun.py` → **READY TO RECORD** (health, runbook store ≥3, UI assets, engine segments 2-5)
-- [ ] `python -m tests.test_suite_runner --round 2` → refresh Round 2 (`data/benchmarks/round2.json`) if missing
+- [ ] `python -m tests.test_suite_runner --round 2` → refresh Round 2 (`data/benchmarks/round2.json`) if missing. Recorded artifacts are never overwritten by surprise: re-measurement requires an explicit `--force`.
 - [ ] `data/incidents.db` and `data/reports/` are clean (or accept prior state)
 - [ ] Start server: `uvicorn src.main:app --reload` → open `http://localhost:8000`
 - [ ] Screen-recorder + mic tested; approx 16 min of free disk/recording space

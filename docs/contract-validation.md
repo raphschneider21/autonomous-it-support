@@ -76,16 +76,14 @@ store into `runbooks` at startup (ADR 12 → Milestone store parity).
 
 - **ADR 12**: mtime-invalidated runbook cache present; diagnostic dedup present.
   Benchmark invariant holds — `write=False` never *overwrites* an existing
-  `data/benchmarks/round*.json` (`test_suite_runner.py:115`).
-  - Note 1: when the artifact is *absent*, `write=False` still bootstraps it.
-    Matches intent (fill-on-first-run) but the docstring says "without touching
-    the artifacts on disk" — worth a docstring tighten.
-  - Note 2: `data/` is gitignored, so benchmark JSONs are not in version
-    control; a fresh clone regenerates them. TDD tables are preserved in the
-    committed `docs/benchmark-round2.md`.
-    **Addressed by @Dev2**: `.gitignore` narrowed to `data/*` with an exception
-    for `data/benchmarks/*.json`, so the artifacts the TDD cites by path are
-    now tracked. The incident DB and generated reports stay ignored.
+  `data/benchmarks/round*.json` (`test_suite_runner.py:115`). The CLI no longer
+  overwrites a recorded round on a plain `--round N` re-run: re-measurement
+  requires an explicit `--force`. (A transient 391 ms outlier run had silently
+  clobbered `round2.json` before the guard landed — precisely the failure class
+  ADR 12 exists to prevent.)
+  - Note 2: benchmark JSONs are committed in-repo (gitignore exception added by
+    @Dev2) so the evidence the TDD cites by path survives fresh clones and the
+    demo machine.
 - **ADR 13**: no recurring-incident early-exit anywhere in `src/engine/` — every
   incident runs security check → triage → diagnostics → disagreement → match.
   Audit evidence intact.
@@ -100,7 +98,8 @@ store into `runbooks` at startup (ADR 12 → Milestone store parity).
 
 ## Result
 **1 contract drift fixed** (injection `done` frame), **2 Dev2 fixture data
-issues flagged**, 3 doc notes. Full suite: **92 passing** after the fix.
+issues fixed by @Dev2**, 3 doc notes. Full suite after the Dev2 integration
+merge: **308 passing** (see the post-merge check below).
 
 ---
 

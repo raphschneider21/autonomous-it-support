@@ -281,7 +281,7 @@ fastapi==0.115.0
 uvicorn==0.30.0
 google-genai==1.0.0
 pyyaml==6.0.2
-pydantic==2.9.0
+pydantic>=2.12             # 2.12+ ships cp314 wheels (Ubuntu 26.04 = Python 3.14)
 python-dotenv==1.0.1
 pytest==8.3.0
 httpx==0.27.0              # For testing FastAPI endpoints
@@ -485,7 +485,7 @@ this change is isolated in its own commit and can be dropped independently.**
 | 6 | Dev Strategy | MockExecutor during development |
 | 7 | Project Structure | Defined above |
 | 8 | File Ownership | No overlaps, PR for shared files |
-| 9 | Dependencies | 8 packages (listed above) |
+| 9 | Dependencies | 8 packages (pydantic >= 2.12 for Python 3.14 / Ubuntu 26.04) |
 | 10 | Git Workflow | Feature branches + PRs |
 | 11 | API Keys | .env file, never committed |
 | 12 | Round 2 Optimization | Runbook-store cache (mtime-invalidated) + diagnostic dedup; evidence artifacts immutable |
