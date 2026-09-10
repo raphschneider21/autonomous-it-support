@@ -47,8 +47,11 @@ done
 
 python scripts/demo/preflight.py --endpoint-url "$DEMO_ENDPOINT_URL"
 echo "Demo endpoint ready: $DEMO_ENDPOINT_URL"
+echo "Employee Support: $DEMO_ENDPOINT_URL"
+echo "Demo Lab: $DEMO_ENDPOINT_URL/static/demo.html"
 echo "Demo Lab API: $DEMO_ENDPOINT_URL/api/demo/state"
 if [[ "${DEMO_OPEN_BROWSER:-1}" == "1" ]]; then
   python -m webbrowser -t "$DEMO_ENDPOINT_URL" || echo "Open the Employee Support URL above manually."
+  python -m webbrowser -t "$DEMO_ENDPOINT_URL/static/demo.html" || echo "Open the Demo Lab URL above manually."
 fi
 wait "$endpoint_pid"

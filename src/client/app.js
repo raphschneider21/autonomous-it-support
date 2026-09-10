@@ -257,16 +257,19 @@ async function fetchIncidentFallback() {
 
 /* ===== Final verdict (frozen contract) ===== */
 async function sendVerdict(solved) {
-    $("verdict-block").classList.add("hidden");
-    if (solved) {
-        $("closed-ticket").textContent = currentIncidentId;
-        showScreen("screen-closed");
-    } else {
-        $("escalated-ticket").textContent = currentIncidentId;
-        showScreen("screen-escalated");
-    }
+    const solvedButton = $("btn-solved");
+    const brokenButton = $("btn-still-broken");
+    const verdictError = $("verdict-error");
 
-    if (PREVIEW) return;
+    $("verdict-block").classList.add("hidden");
+    verdictError.classList.add("hidden");
+    solvedButton.disabled = true;
+    brokenButton.disabled = true;
+
+    if (PREVIEW) {
+        showVerdictOutcome(solved);
+        return;
+    }
 
     try {
         const res = await fetch(`/api/incidents/${currentIncidentId}/confirm`, {
@@ -274,14 +277,34 @@ async function sendVerdict(solved) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ solved }),
         });
-        if (!res.ok) throw new Error("Server returned " + res.status);
-        const body = await res.json();
-        // "Still broken" escalates server-side and returns the typed ticket.
-        // Surface the ticket title if the backend gave us one.
-        if (!solved && body?.escalation_ticket?.ticket_title) {
-            $("escalated-ticket").textContent = currentIncidentId;
+        const body = await safeJson(res);
+        if (!res.ok) {
+            throw new Error(body?.detail || `Server returned ${res.status}`);
         }
-    } catch { /* the UI already reflects the outcome; the backend persists it */ }
+        const expectedStatus = solved ? "closed" : "escalated";
+        if (body?.status !== expectedStatus) {
+            throw new Error("The support service did not confirm the requested outcome.");
+        }
+        showVerdictOutcome(solved);
+    } catch (err) {
+        solvedButton.disabled = false;
+        brokenButton.disabled = false;
+        verdictError.textContent = `Could not save your response. Please try again. (${err.message})`;
+        verdictError.classList.remove("hidden");
+        $("verdict-block").classList.remove("hidden");
+    }
+}
+
+function showVerdictOutcome(solved) {
+    $("btn-solved").disabled = false;
+    $("btn-still-broken").disabled = false;
+    if (solved) {
+        $("closed-ticket").textContent = currentIncidentId;
+        showScreen("screen-closed");
+    } else {
+        $("escalated-ticket").textContent = currentIncidentId;
+        showScreen("screen-escalated");
+    }
 }
 
 /* ===== Error state ===== */
@@ -297,6 +320,7 @@ function resetUI() {
     currentIncidentId = null;
     $("user-prompt").value = "";
     $("intake-error").classList.add("hidden");
+    $("verdict-error").classList.add("hidden");
     document.querySelectorAll("#result-success-banner, #result-neutral-banner, #verdict-block").forEach(b => b.classList.add("hidden"));
     stepsList.innerHTML = "";
     setLive(false);

@@ -355,14 +355,14 @@ pre.raw {
 .trace { list-style: none; margin: 0; padding: 1.25rem 1.6rem 2rem; overflow-y: auto; flex: 1; }
 .trace-empty { color: var(--term-muted); }
 .tr {
-    display: grid; grid-template-columns: 8rem 9rem 1fr; gap: 1.1rem;
+    display: grid; grid-template-columns: 8rem 11rem minmax(0, 1fr); gap: 1.1rem;
     padding: .5rem 0; border-bottom: 1px solid var(--term-rule); align-items: start;
 }
 .tr:last-child { border-bottom: 0; }
 .tr-time { font-family: var(--mono); font-size: .92rem; color: var(--term-muted); }
 .tr-comp {
     font-family: var(--mono); font-size: .92rem; font-weight: 650;
-    letter-spacing: .06em; color: var(--term-ink);
+    letter-spacing: .06em; color: var(--term-ink); overflow-wrap: anywhere;
 }
 .tr-comp.security  { color: #9bb4ff; }
 .tr-comp.triage    { color: #b39bff; }

@@ -503,12 +503,22 @@ function mostActive() {
 const COMPONENT = {
     input_check: "SECURITY", blocked: "REFUSED", classification: "TRIAGE",
     diagnosis: "DIAGNOSTIC", remediation: "EXECUTOR", verification: "VERIFY",
-    disagreement: "COMMANDER", escalation: "COMMANDER", metrics: "COMMANDER",
+    disagreement: "COMMANDER", reconciliation: "COMMANDER",
+    runbook_match: "KNOWLEDGE", action_permitted: "SECURITY",
+    user_confirmation: "USER", lifecycle: "COMMANDER",
+    escalation: "COMMANDER", metrics: "COMMANDER",
+};
+
+const AGENT_COMPONENT = {
+    IncidentCommander: "COMMANDER", DiagnosticAgent: "DIAGNOSTIC",
+    SecurityAgent: "SECURITY", TriageAgent: "TRIAGE", User: "USER",
 };
 
 function traceRow(a) {
     const refused = a.tier === "red" || a.action === "blocked";
-    const comp = refused ? "REFUSED" : (COMPONENT[a.action] || (a.agent || "SYSTEM").toUpperCase());
+    const comp = refused
+        ? "REFUSED"
+        : (COMPONENT[a.action] || AGENT_COMPONENT[a.agent] || (a.agent || "SYSTEM").toUpperCase());
     const summary = summarise(a);
 
     return `
@@ -549,6 +559,7 @@ function summarise(a) {
         if (o.category) return `category: ${o.category}   severity: ${o.severity || "–"}`;
         if (o.status) return `${o.status}   ${o.latency_ms ?? "?"} ms   ${o.tool_calls ?? "?"} tool calls`;
         if (o.root_cause) return `root cause: ${o.root_cause}`;
+        if (o.runbook_id) return `matched ${o.runbook_id}${o.title ? ` — ${o.title}` : ""}`;
         if (o.ticket_title) return o.ticket_title;
         return Object.keys(o).slice(0, 4).map((k) => `${k}: ${o[k]}`).join("   ");
     } catch { return raw; }

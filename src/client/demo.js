@@ -1,4 +1,5 @@
 ﻿let autoRefreshHandle = null;
+const PREVIEW = new URLSearchParams(window.location.search).get("preview") === "1";
 
 const PREVIEW_LAB = {
     endpoint: "ubuntu-demo-01",
@@ -17,6 +18,7 @@ const PREVIEW_LAB = {
         audio: "active",
     },
 };
+let previewLabState = JSON.parse(JSON.stringify(PREVIEW_LAB));
 
 const SERVICE_LABELS = {
     cups: "Printing",
@@ -143,6 +145,11 @@ function stopPolling() {
 }
 
 async function refresh({ silent } = {}) {
+    if (PREVIEW) {
+        renderState(previewLabState);
+        if (!silent) showFeedback("Local preview state refreshed.", "ok");
+        return;
+    }
     try {
         const res = await fetch("/api/demo/state");
         if (!res.ok) throw new Error("Demo backend returned " + res.status);
@@ -152,13 +159,29 @@ async function refresh({ silent } = {}) {
         if (!silent) showFeedback("Lab state refreshed.", "ok");
     } catch (err) {
         if (!silent) showError("Could not reach the Demo Lab backend. (" + err.message + ")");
-        renderFallbackState(err.message);
+        renderOfflineState();
     }
 }
 
 /* ===== Fault / reset actions ===== */
 async function injectFault(faultId) {
     showFeedback("Injecting demo fault\u2026", "working");
+    if (PREVIEW) {
+        if (!previewLabState.active_faults.includes(faultId)) {
+            previewLabState.active_faults.push(faultId);
+        }
+        const serviceByFault = {
+            cups_stopped: ["cups", "inactive"],
+            dns_broken: ["dns", "failed"],
+            disk_full: ["disk", "full"],
+            pulse_audio_down: ["audio", "inactive"],
+        };
+        const service = serviceByFault[faultId];
+        if (service) previewLabState.services[service[0]] = service[1];
+        renderState(previewLabState);
+        showFeedback("Local preview fault injected.", "ok");
+        return;
+    }
     try {
         const res = await fetch(`/api/demo/faults/${encodeURIComponent(faultId)}`, {
             method: "POST",
@@ -168,12 +191,18 @@ async function injectFault(faultId) {
         showFeedback("Demo fault injected.", "ok");
     } catch (err) {
         showError("Could not inject the fault. (" + err.message + ")");
-        renderFallbackState(err.message);
+        renderOfflineState();
     }
 }
 
 async function resetLab() {
     showFeedback("Resetting endpoint\u2026", "working");
+    if (PREVIEW) {
+        previewLabState = JSON.parse(JSON.stringify(PREVIEW_LAB));
+        renderState(previewLabState);
+        showFeedback("Local preview reset.", "ok");
+        return;
+    }
     try {
         const res = await fetch("/api/demo/reset", { method: "POST" });
         if (!res.ok) throw new Error("Demo backend returned " + res.status);
@@ -181,43 +210,30 @@ async function resetLab() {
         showFeedback("Endpoint reset. All services healthy.", "ok");
     } catch (err) {
         showError("Could not reset the endpoint. (" + err.message + ")");
-        renderFallbackState(err.message);
+        renderOfflineState();
     }
 }
 
 /* ===== UI wiring ===== */
 $("btn-reset").addEventListener("click", resetLab);
 
-/* ===== Preview fallback =====
-   Development-only rehearsal aid so the Demo Lab UI can be exercised while
-   Dev1's backend endpoints are being implemented. Production code always
-   calls the real /api/demo/* endpoints; the fallback only replaces the
-   rendered state when the backend is unreachable. */
-function renderFallbackState(reason) {
+/* Production failures never substitute local fault data, because that could
+   mislead the presenter about endpoint state. Preview data is opt-in above. */
+function renderOfflineState() {
+    $("mode-badge").textContent = "Backend Offline";
+    $("mode-badge").className = "chip chip-demo chip-live";
+    $("endpoint-state").innerHTML = '<span class="state-pill pill-bad">Unavailable</span>';
+    $("services-grid").innerHTML = '<p class="empty-state">Live endpoint state is unavailable.</p>';
     const container = $("fault-buttons");
-    if (!container.dataset.fallback) {
-        container.dataset.fallback = "1";
-        renderState(PREVIEW_LAB);
-        const note = document.createElement("p");
-        note.className = "empty-state";
-        note.textContent = "Backend not reachable. Showing local preview only (" + reason + ").";
-        container.prepend(note);
-    }
+    container.innerHTML = '<p class="empty-state">Fault controls are unavailable until the backend reconnects.</p>';
 }
 
 /* ===== Init ===== */
 (async function init() {
-    const hasPreview = new URLSearchParams(window.location.search).get("preview") === "1";
-    if (hasPreview) {
-        renderState(PREVIEW_LAB);
-        startPolling();
+    if (PREVIEW) {
+        renderState(previewLabState);
         return;
     }
-    try {
-        await refresh({ silent: true });
-        startPolling();
-    } catch {
-        renderFallbackState("initial load");
-        startPolling();
-    }
+    await refresh({ silent: true });
+    startPolling();
 })();
