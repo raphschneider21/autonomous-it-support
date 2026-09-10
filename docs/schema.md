@@ -1,239 +1,338 @@
-# Interface Contract Freeze — `docs/schema.md`
+# Current Interface and Data Contracts
 
-> **Status**: Draft v0.1 — pending team sign-off (Milestone 1, `@All`).
-> Purpose: freeze the data contracts so the engine, runbook store, client UI,
-> and escalation bridge can be built independently. Where a schema is already
-> implemented, this document is the **source of truth** matching the code;
-> where it is a proposal, the freezetrack marker is `[PROPOSED]`.
+> **Status:** current PoC reference.  
+> The code remains authoritative if a historical document disagrees with this file.
 
-## Governance
-- The schemas below are frozen once all three developers sign off.
-- Any post-freeze change = version bump + a `docs/architectural-decisions.md`
-  entry with impact analysis; it must not silently diverge from the code.
-- Schema validation is enforced in code via Pydantic models (`src/models.py`).
+This document describes the interfaces used by the current Mac-only graded demo and its simulated Ubuntu 26.04 endpoint.
 
----
+## 1. Runtime mode contract
 
-## 1. RunbookSchema (YAML) — v1.1
+The graded profile is equivalent to:
 
-Loaded by `src/knowledge/runbook_parser.py`; matched by `match_runbook`.
-Status: **implemented and frozen at v1.1**. Sign-off: `@Dev2` **SIGNED**
-(2026-09-09) — fields below match all 33 shipped runbooks and are enforced by
-`tests/test_ubuntu_knowledge_base.py`.
-
-### Stores
-
-The knowledge base is split into **stores** so several endpoint platforms can
-coexist without polluting each other's retrieval results:
-
-| Store | Directory | Contents |
-| ----- | --------- | -------- |
-| `default` | `fixtures/runbooks/` | 3 Windows fixtures (existing engine + live demo) |
-| `ubuntu-26.04` | `fixtures/runbooks/ubuntu-26.04/` | 30 Ubuntu 26.04 LTS VM runbooks |
-
-`load_all_runbooks()` and `match_runbook()` take an optional `store`; with no
-argument they read `$RUNBOOK_STORE`, defaulting to `default`. Store directories
-are **not** recursed into, so the two spaces stay disjoint (asserted by
-`tests/test_runbook_cache.py`).
-
-### v1.0 -> v1.1 changes
-
-| Field | Change | Reason |
-| ----- | ------ | ------ |
-| `schema_version` | `"1.0"` -> `"1.1"` | Two optional additive fields below |
-| `parameters` | **new**, optional | One runbook covers a family of incidents (which sink, which connector, which block device) instead of hard-coding one machine's values |
-| `environment` | **new**, optional | `vm-safe` \| `physical-only` — declares whether the runbook is exercisable on a VM endpoint |
-| `source_case` | **new**, optional | Back-reference to the training dataset case (`UB-014`) for traceability |
-
-Backward compatible: all three are optional and the v1.0 Windows fixtures
-still parse unchanged.
-
-| Field | Type | Required | Notes |
-| ----- | ---- | -------- | ----- |
-| `schema_version` | string | yes | `"1.1"` (v1.0 fixtures still parse) |
-| `runbook_id` | string | yes | Unique, `RB-<DOMAIN>-<NNN>` |
-| `title` | string | yes | Human label shown in traces |
-| `target_os` | string | yes | `windows_11` \| `ubuntu_26_04` — informational |
-| `environment` | enum | optional | `vm-safe` \| `physical-only` (v1.1) |
-| `source_case` | string | optional | Training-dataset case ID (v1.1) |
-| `parameters` | list[{name, description, default}] | optional | `{name}` placeholders in commands, resolved from `default` at load time (v1.1) |
-| `tags` | list[string] | yes | Curated match keywords — IDF-weighted at 2.0 |
-| `trigger_signatures.symptoms` | list[string] | yes | Natural-language phrasings — IDF-weighted at 3.0, plus a bigram phrase bonus |
-| `trigger_signatures.error_codes` | list[string] | optional | Quoted error strings — +6.0 each on substring match |
-| `trigger_signatures.process_names` | list[string] | optional | Reserved for process-based triggers |
-| `pre_checks` | list[{command, expected_output_regex}] | optional | Read-only preconditions (Green only) |
-| `remediation_steps` | list of steps | yes | See step schema below |
-| `verification` | list[{command, expected_output_regex}] | optional | Must all pass to resolve |
-| `rollback_plan` | list[{command}] | optional | Mirrors `remediation_steps` for reversal |
-
-**Step object** (`remediation_steps[]`):
-| Field | Type | Required | Notes |
-| ----- | ---- | -------- | ----- |
-| `step` | int | yes | 1-based order |
-| `description` | string | yes | Shown in the approval modal |
-| `command` | string | yes | Exact command executed against the endpoint |
-| `elevation_required` | bool | optional | Maps to Yellow tier (requires approval) |
-| `timeout_seconds` | int | optional | Informational |
-
-### Enforced invariants
-
-All asserted by `tests/test_ubuntu_knowledge_base.py`:
-
-- A runbook with **zero** `remediation_steps` is invalid.
-- `runbook_id` is unique and matches its filename.
-- No command in any section may be **Red** tier.
-- Every remediation step is either **Yellow** (approval-gated) or provably
-  read-only — a step that changes the endpoint can never be auto-executed.
-- `pre_checks` and `verification` commands must be **Green** (read-only):
-  verification may never itself change state.
-- No `{placeholder}` may survive into a command handed to an executor.
-- No command may use a subsystem removed in Ubuntu 26.04 (`xrandr`,
-  `setxkbmap`, `xkill`, `wmctrl`, `pulseaudio -k`).
-- Every runbook's `verification` block must pass against the mock endpoint.
-
-### Retrieval contract
-
-`match_runbook(prompt, error_codes=None, store=None)` returns a runbook **or
-`None`**. `None` means *escalate* — it is returned when confidence is below
-0.35 or the runner-up margin is below 0.08. `explain_match()` returns the same
-decision with `reason`, `confidence`, `margin` and the top-3 candidates for the
-audit trail. Algorithm and measured accuracy: `docs/runbook-matching.md`.
-
----
-
-## 2. DiagnosticEvent Stream Schema (Engine → Client UI)
-
-Transport: Server-Sent Events at `GET /api/incidents/{id}/events`
-(`src/engine/event_stream.py`, `src/main.py`). Two frame types:
-
-### 2a. `event` frames (streamed live, one per agent message)
+```text
+DEMO_MODE=1
+EXECUTOR=mock
+AGENT_MODE=deterministic
+RUNBOOK_STORE=ubuntu-26.04
+MONITORING_ENABLED=1
+MONITORING_URL=http://127.0.0.1:8001
+ENDPOINT_NAME=ubuntu-demo-01
 ```
+
+`GET /api/health` exposes the running values so launch/preflight can verify the actual process rather than trusting shell variables.
+
+Representative fields:
+
+```json
+{
+  "status": "ok",
+  "endpoint": "ubuntu-demo-01",
+  "demo_mode": true,
+  "agent_mode": "deterministic",
+  "requested_agent_mode": "deterministic",
+  "external_model_enabled": false,
+  "runbook_store": "ubuntu-26.04",
+  "monitoring_url": "http://127.0.0.1:8001",
+  "monitoring_enabled": true,
+  "monitoring_reachable": true
+}
+```
+
+Executor-description fields are also included and identify whether execution is simulated or can affect the current machine.
+
+## 2. Employee / Incident Engine API — port 8000
+
+### `POST /api/incidents`
+
+Request:
+
+```json
+{
+  "user_prompt": "My printer isn't printing anything."
+}
+```
+
+Response:
+
+```json
+{
+  "incident_id": "INC-XXXXXXXX",
+  "status": "diagnosing"
+}
+```
+
+The incident then runs as a background task.
+
+### `GET /api/incidents/{incident_id}/events`
+
+Transport: Server-Sent Events.
+
+Event frames have the shape:
+
+```text
 event: event
-data: {
-  "agent":   "DiagnosticAgent",          // exactly one of the 4 runtime agents
-  "message": "Ran: Get-Service -Name spooler",
-  "tier":    "green",                    // green | yellow | red
-  "awaiting": true,                      // present only on approval-gate event
-  "command": "Stop-Service -Name spooler -Force"  // present when pending approval
-}
+data: { ...structured event payload... }
 ```
 
-| Field | Type | Required | Rules |
-| ----- | ---- | -------- | ----- |
-| `agent` | string | yes | One of: `IncidentCommander`, `TriageAgent`, `DiagnosticAgent`, `SecurityAgent` |
-| `message` | string | yes | Non-empty, human-readable |
-| `tier` | enum | yes | `green` `yellow` `red` |
-| `awaiting` | bool | only on approval gate | `true` + `command` set |
-| `command` | string | only with `awaiting` | The Yellow-tier command submitted for review |
+When the incident engine completes its technical processing, the stream emits one terminal frame:
 
-### 2b. `done` frame (terminal result)
-```
+```text
 event: done
-data: {
-  "status": "awaiting_approval",         // open|diagnosing|awaiting_approval|resolved|escalated
-  "events": [...DiagnosticEvent],        // full replay appended by engine
-  "runbook_id": "RB-PRINT-001" | null,
-  "pending_command": "Stop-Service -Name spooler -Force",  // when awaiting_approval
-  "escalation_ticket": {...EscalationTicket} | null,        // when escalated
-  "report_path": "data/reports/INC-....md" | null,          // when resolved
-  "metrics": { "status": str, "latency_ms": float, "tool_calls": int }
+data: { ...result payload... }
+```
+
+The exact event payload can contain agent/component name, human-readable message, safety tier, command/output or lifecycle information depending on the event type. Consumers should tolerate additive fields.
+
+There is **no current per-command approval event requirement** in the graded flow. Historical `awaiting_approval` fields/status values can remain in compatibility models, but the current user journey uses one up-front consent before the incident begins.
+
+### `GET /api/incidents/{incident_id}`
+
+Response:
+
+```json
+{
+  "incident": { "...": "persisted incident record" },
+  "audit_log": [
+    { "...": "ordered audit entry" }
+  ]
 }
 ```
-Only a single `done` frame terminates the stream. Sign-off: `@Dev3` (UI)
-**[TEAM INPUT]**.
 
----
+This is the durable evidence view for the endpoint process.
 
-## 3. EscalationTicket Schema (Engine → ITSM bridge)
+### `POST /api/incidents/{incident_id}/confirm`
 
-Typed in `src/models.py`, produced by `src/integrations/escalation.py`.
-Status: **implemented**; referenced by `tests/test_escalation_ticket.py`.
+Request:
 
-```
-EscalationTicket {
-  ticket_title:      str            // "Escalation: <category> issue on <hostname>"
-  priority:          str = "P3 - Moderate"
-  requester:         Requester      { username, email="", department="unknown" }
-  device_telemetry:  DeviceTelemetry{ hostname, os_version, uptime_hours=0.0, last_boot_reason="unknown" }
-  issue_context:     IssueContext   {
-                       user_reported_symptom: str,
-                       detected_error_codes:  list[str] = [],
-                       attempted_remediations:list[AttemptedRemediation] = [],
-                       agent_assessment:      str
-                     }
-  incident_id:       str = ""
+```json
+{
+  "solved": true
 }
-AttemptedRemediation { action: str, result: str, verification_outcome: str }
-```
-Guarantees: all `str` fields are non-null (missing telemetry maps to `"Unknown"`).
-
----
-
-## 4. IncidentReport Schema (Markdown, dual documentation)
-
-Produced by `src/documentation/report_generator.py`, written to
-`data/reports/{incident_id}.md`. Fixed structure:
-```
-# Incident Resolution Report: <incident_id>
-- Timestamp / Host / User / Initial User Prompt
-
-## 1. Root Cause Summary          (resolution_summary)
-## 2. Actions Taken by Agent      (audit_log rows: [ts] [TIER] action: `cmd` — output)
-## 3. Verification & Outcome      (final status + runbook link)
 ```
 
----
+or:
 
-## 5. SQLite Schema (`src/database.py`, `data/incidents.db`)
+```json
+{
+  "solved": false
+}
+```
 
-### 5a. `incidents`
-| Column | Type | Constraints |
-| ------ | ---- | ----------- |
-| `id` | TEXT | PK |
-| `created_at` | TEXT | NOT NULL (ISO-8601 UTC) |
-| `user_prompt` | TEXT | NOT NULL (min length 1 at API layer) |
-| `category` | TEXT | NULL |
-| `severity` | TEXT | NULL |
-| `status` | TEXT | DEFAULT 'open' |
-| `hostname` | TEXT | NULL |
-| `os_version` | TEXT | NULL |
-| `resolution_summary` | TEXT | NULL |
-| `runbook_id` | TEXT | FK → `runbooks.id` |
+Semantics:
 
-### 5b. `runbooks`
-| Column | Type | Constraints |
-| ------ | ---- | ----------- |
-| `id` | TEXT | PK |
-| `title` | TEXT | NOT NULL |
-| `target_os` / `tags` / `trigger_signatures` / `pre_checks` / `remediation_steps` / `verification` / `rollback_plan` | TEXT | JSON-encoded, NULL allowed |
-| `created_at` | TEXT | NOT NULL |
-| `times_executed` | INT | DEFAULT 0 |
-| `times_succeeded` | INT | DEFAULT 0 |
+- `true` after a technically resolved incident → `closed`, `user_confirmed=solved`;
+- `false` after a technically resolved incident → `escalated`, `user_confirmed=still_broken`, with Human-L2 escalation information;
+- confirmation on an incident that is not awaiting the employee verdict → HTTP 409.
 
-### 5c. `audit_log`
-| Column | Type | Constraints |
-| ------ | ---- | ----------- |
-| `id` | INT | PK AUTOINCREMENT |
-| `incident_id` | TEXT | NOT NULL, FK → `incidents.id` |
-| `timestamp` | TEXT | NOT NULL |
-| `agent_name` | TEXT | NOT NULL |
-| `action_type` | TEXT | NOT NULL — `input_check`, `classification`, `diagnosis`, `remediation`, `approval`, `blocked`, `disagreement`, `awaiting_approval`, `escalation`, `verification`, `metrics` |
-| `safety_tier` | TEXT | NOT NULL — `green`/`yellow`/`red` |
-| `command_executed` | TEXT | NULL |
-| `output` | TEXT | NULL |
-| `user_approved` | INT | DEFAULT 0 (0/1) |
+Representative response:
 
-### 5d. `metrics` convention
-Execution telemetry is stored as an `audit_log` row with
-`action_type='metrics'` and `output = JSON {status, latency_ms, tool_calls}` —
-not a separate table.
+```json
+{
+  "incident_id": "INC-XXXXXXXX",
+  "status": "closed",
+  "user_confirmed": "solved",
+  "reported_to_service_desk": true,
+  "escalation_ticket": null
+}
+```
 
----
+## 3. Demo Lab API
 
-## 6. Open items for freeze
-- [x] RunbookSchema: `@Dev2` **signed off** at v1.1 (2026-09-09); invariants
-      enforced by `tests/test_ubuntu_knowledge_base.py`.
-- [ ] DiagnosticEvent: `@Dev3` UI sign-off on `event`/`done` frame payloads.
-- [ ] EscalationTicket: confirm ServiceNow/Jira adapter fields with course staff.
-- [ ] `docs/user-journey.md` cross-check for any drift.
-- [ ] Audit `action_type` enum freeze (add any future values via version bump).
+The Demo Lab and `MockExecutor` share one in-memory simulated endpoint state.
+
+### `GET /api/demo/state`
+
+Representative healthy state:
+
+```json
+{
+  "endpoint": "ubuntu-demo-01",
+  "mode": "simulated",
+  "available_faults": [
+    {
+      "id": "cups_stopped",
+      "label": "CUPS printing service stopped",
+      "category": "printing"
+    }
+  ],
+  "active_faults": [],
+  "services": {
+    "cups": "active"
+  },
+  "print_queue": "empty"
+}
+```
+
+### `POST /api/demo/faults/{fault_id}`
+
+Injects an approved deterministic fault and returns the complete updated state.
+
+Unknown fault IDs return HTTP 404 without mutating the existing state.
+
+### `POST /api/demo/reset`
+
+Restores the simulated endpoint to its known healthy baseline and returns the complete state. Reset is intended to be idempotent.
+
+## 4. Runbook contract
+
+The graded store is:
+
+```text
+fixtures/runbooks/ubuntu-26.04/
+```
+
+The hero runbook is `RB-CUPS-001`.
+
+Runbook shape:
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `schema_version` | string | Runbook schema revision |
+| `runbook_id` | string | Stable identifier |
+| `title` | string | Human-readable label |
+| `target_os` | string | Intended endpoint platform |
+| `tags` | list[string] | Retrieval terms |
+| `trigger_signatures` | object | Symptoms/error signatures used for matching |
+| `pre_checks` | list[object] | Read-only diagnostic conditions |
+| `remediation_steps` | list[object] | Ordered permitted remediation plan |
+| `verification` | list[object] | Fresh post-remediation checks |
+| `rollback_plan` | list[object] | Reversal guidance where supplied |
+| `parameters` | optional list | Controlled placeholder definitions |
+| `environment` | optional string | Environment applicability metadata |
+| `source_case` | optional string | Evaluation/training traceability metadata |
+
+A remediation-step object includes at least:
+
+```json
+{
+  "step": 1,
+  "description": "...",
+  "command": "...",
+  "elevation_required": true,
+  "timeout_seconds": 10
+}
+```
+
+`elevation_required`/Yellow classification does **not** imply a current per-command approval modal. In the graded profile, a state-altering command must still match the safety allowlist and then executes only inside the already accepted up-front troubleshooting scope.
+
+Runbook invariants include:
+
+- at least one remediation step;
+- unique runbook ID;
+- no Red/forbidden command in a valid operational runbook;
+- pre-checks and verification remain read-only;
+- runtime placeholders must be resolved and revalidated before execution;
+- verification must evaluate fresh state rather than assuming command success.
+
+## 5. Safety/executor contract
+
+All OS-style commands pass through `IExecutor`; agent code should not bypass the executor abstraction.
+
+The current graded policy is:
+
+```text
+Green   read-only                  allowed automatically
+Yellow  local + reversible + allowlisted
+                                      allowed inside up-front consent
+Red     forbidden/unsafe             blocked
+Unknown not explicitly allowlisted   blocked
+```
+
+`RealExecutor` exists as an optional engineering path. The graded demo uses `MockExecutor`, which must not change the Mac host.
+
+## 6. Service Desk ingestion contract — port 8001
+
+Endpoint snapshots are sent to:
+
+```text
+POST /api/tickets
+```
+
+Ticket payload fields currently accepted include:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `incident_id` | string | required, idempotency key |
+| `hostname` | optional string | simulated endpoint name |
+| `title` | optional string | ticket/display title |
+| `status` | string | lifecycle status |
+| `category` | optional string | incident class |
+| `severity` | optional string | severity |
+| `user_prompt` | optional string | original employee report |
+| `runbook_id` | optional string | matched operational runbook |
+| `resolution` | optional string | summary |
+| `agent_source` | optional string | deterministic/Claude/fallback evidence |
+| `latency_ms` | optional float | measured engine latency when available |
+| `tool_calls` | optional int | measured tool-call count |
+| `tokens_in` / `tokens_out` | int | model usage when available |
+| `actions` | list[object] | chronological audit/action evidence |
+| `errors` | list[object] | refusal/failure subset |
+| `escalation` | optional object | Human-L2 escalation payload |
+| `user_confirmed` | optional string | `solved` / `still_broken` |
+| `incident_report` | optional string | human-readable report content |
+| `runbook` | optional object | runbook summary/documentation payload |
+
+Consumers should remain backward-compatible with early lifecycle snapshots where most optional fields are null/empty.
+
+Service Desk maps a technically `resolved` endpoint state to an open ticket until employee confirmation is known. Final employee outcomes become `closed` or `escalated`.
+
+## 7. Service Desk read APIs
+
+```text
+GET /api/health
+GET /api/tickets
+GET /api/tickets/{incident_id}
+GET /api/stats
+```
+
+The Service Desk persists tickets in a separate SQLite database. Repeated snapshots for the same `incident_id` update the existing ticket rather than creating duplicates.
+
+The database migration path for optional documentation fields is additive so an existing `tickets.db` created before those columns existed can still be opened safely.
+
+## 8. Incident report contract
+
+The human-readable incident report is generated from the actual incident execution evidence. It should not be confused with the operational runbook.
+
+Conceptual distinction:
+
+```text
+Runbook
+= pre-existing machine-readable operational knowledge used by the system
+
+Incident report
+= human-readable record generated from this specific incident execution
+```
+
+Do not claim that the runtime generated a new runbook if it used `RB-CUPS-001` or another pre-existing runbook.
+
+## 9. Endpoint SQLite/audit contract
+
+The endpoint database persists incidents, runbooks and audit rows. Audit entries record concepts such as:
+
+- input/policy check;
+- classification;
+- diagnosis;
+- disagreement/reconciliation;
+- runbook match;
+- action permitted/blocked;
+- remediation;
+- verification;
+- lifecycle/metrics;
+- employee confirmation;
+- escalation.
+
+Historical enum/column names can remain for backwards compatibility; the current documentation should describe the behaviour that the running graded path actually uses.
+
+## 10. Contract-change rule
+
+Changes to any of the following require coordinated review because multiple surfaces depend on them:
+
+- incident creation/confirmation semantics;
+- SSE terminal result behaviour;
+- Demo Lab state schema;
+- runbook schema;
+- safety/executor semantics;
+- Service Desk ticket payload;
+- support-level/closure semantics.
+
+Presentation-only formatting may change without introducing a second contradictory source of lifecycle truth.
