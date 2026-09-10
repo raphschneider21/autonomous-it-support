@@ -25,6 +25,7 @@ venv/
 env/
 
 # Runtime Data
+.demo-runtime/
 data/*
 !data/benchmarks/
 data/benchmarks/*

@@ -1,8 +1,66 @@
 # Dev1 demo runtime and rehearsal
 
-Run from a prepared checkout of `feature/demo-runtime-reliability` with the
+Run from a prepared checkout of `integration/final-demo` with the
 dependencies in `requirements.txt` already installed. Launch performs no install,
 repository update, model call, or external internet request.
+
+## Mac one-click launch
+
+For the final single-Mac topology, open `scripts/demo` in Finder and double-click:
+
+```text
+Autonomous IT Support Demo.command
+```
+
+The launcher selects `.venv/bin/python` when present (otherwise `python3`),
+checks the installed project dependencies, forces the frozen mock/deterministic
+configuration, starts or safely reuses the two expected services, resets the
+simulated endpoint, runs preflight, and opens exactly Employee Support, Demo Lab,
+and Service Desk. It ends with `DEMO READY` or a fail-fast `DEMO NOT READY`.
+
+To stop only processes recorded as launcher-owned, double-click:
+
+```text
+Stop Autonomous IT Support Demo.command
+```
+
+The stop action is idempotent. It validates the recorded process start time,
+repository, command and role before sending `SIGTERM`; stale records are cleaned
+without killing their current PID owner. Existing healthy demo services may be
+reused but are not claimed by a new launcher. Unknown processes on ports 8000 or
+8001 are never killed—the launcher fails and explains which port is blocked.
+
+One-time Finder/Desktop setup from Terminal:
+
+```sh
+cd /path/to/autonomous-it-support
+chmod +x scripts/demo/*.command scripts/demo/*_mac.sh scripts/demo/mac_runtime.py
+open scripts/demo
+```
+
+In Finder, select each `.command` file, choose **File → Make Alias**, and drag
+the two aliases to the Desktop. Finder aliases preserve the repository-relative
+root resolution; do not copy the scripts out of their folder. If macOS displays
+a first-run trust warning, Control-click the file, choose **Open**, then confirm
+Open once.
+
+Terminal equivalents, useful for recovery or headless rehearsal:
+
+```sh
+bash scripts/demo/launch_all_mac.sh
+bash scripts/demo/stop_all_mac.sh
+```
+
+Set `DEMO_OPEN_BROWSER=0` to validate launch without opening browser tabs, or
+`DEMO_PYTHON=/path/to/python` to select a prepared interpreter explicitly.
+Runtime PID records and logs live under the gitignored `.demo-runtime/` directory:
+
+```text
+.demo-runtime/logs/endpoint.log
+.demo-runtime/logs/service-desk.log
+```
+
+Logs are preserved after stopping for diagnosis; launcher PID files are removed.
 
 ## Launch the frozen topology
 
