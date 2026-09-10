@@ -1,17 +1,18 @@
 """Reports incidents to the monitoring service.
 
-`MONITORING_URL` decides where the service desk lives. It defaults to localhost,
-so a single-machine setup works with no configuration; for the demo the Ubuntu
-VM points at the Mac:
+`MONITORING_URL` decides where the Service Desk lives. It defaults to localhost,
+which is also the current graded-demo topology:
 
-    MONITORING_URL=http://10.211.55.2:8001
+    MONITORING_URL=http://127.0.0.1:8001
+
+The endpoint/runtime service and Service Desk still communicate over HTTP and
+keep separate state even though both processes run on the same Mac. The managed
+endpoint represented by the runtime is the explicitly simulated Ubuntu 26.04
+endpoint `ubuntu-demo-01`.
 
 **Reporting never blocks the fix.** Every failure — service down, wrong host,
-DNS, timeout — is swallowed and recorded locally. A service desk that cannot be
-reached is an IT visibility problem; it is not a reason to leave a user's
-machine broken. This is the mitigation for the VM-to-host networking risk: if
-the network sulks five minutes before recording, the agent still works and only
-the dashboard goes quiet.
+DNS, timeout — is swallowed and recorded locally. A Service Desk outage is an
+IT-visibility problem; it is not a reason to stop endpoint troubleshooting.
 """
 import json
 import os
