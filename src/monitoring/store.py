@@ -1,14 +1,15 @@
 """Ticket store for the monitoring service.
 
-Deliberately a *separate* database from the endpoint agent's. The two run on
-different machines — the agent on the user's Ubuntu VM, monitoring on the IT
-side — so they cannot share a SQLite file, and pretending otherwise would hide
-the network hop the architecture actually has.
+Deliberately a *separate* database from the endpoint/runtime state. In the
+current graded demo both services run on the same Mac, but they remain separate
+processes with separate SQLite data and communicate over HTTP. The managed
+endpoint represented by the runtime is the simulated Ubuntu 26.04 endpoint
+`ubuntu-demo-01`, not the Mac host.
 
-A ticket is keyed by `incident_id`, so the endpoint agent can report the same
-incident repeatedly as it progresses and the row is upserted rather than
-duplicated. That also makes ingestion idempotent, which matters when the agent
-retries after a network blip.
+A ticket is keyed by `incident_id`, so the endpoint can report the same incident
+repeatedly as it progresses and the row is upserted rather than duplicated.
+That keeps ingestion idempotent and preserves the architectural boundary that
+would also apply if the endpoint service moved to another machine later.
 """
 import json
 import os
