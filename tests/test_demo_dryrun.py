@@ -58,7 +58,7 @@ def _checks() -> list[dict]:
         results[2]["ok"] = ui.status_code == 200 and "text/html" in ui.headers.get("content-type", "")
         results[2]["detail"] = ui.headers.get("content-type", "")
 
-    for asset in ("index.html", "app.js", "style.css"):
+    for asset in ("index.html", "app.js", "style.css", "demo.html", "demo.js", "demo.css"):
         results.append({
             "name": f"UI asset: {asset}",
             "ok": os.path.exists(os.path.join(CLIENT_DIR, asset)),

@@ -4,7 +4,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from ..models import IncidentStatus, SafetyTier
+from .. import config
 from ..database import insert_incident, update_incident, get_incident, insert_audit
 from .triage_agent import classify
 from .diagnostic_agent import diagnose, assess as diagnostic_assess, verify_fix
@@ -18,9 +18,11 @@ from ..integrations.escalation import generate_escalation_ticket
 from ..integrations import monitoring_client
 from ..documentation.report_generator import generate_report
 from ..executors.factory import get_executor
+from ..executors.factory import is_real
 
 # Per-incident token totals, read back when the result is assembled.
 _usage_by_incident: dict[str, dict] = {}
+REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "data", "reports")
 
 
 def _emit(incident_id: str, event: dict):
@@ -60,21 +62,28 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
     start = time.perf_counter()
     tool_calls = 0
     insert_incident(incident_id, user_prompt)
+    update_incident(incident_id, hostname=config.endpoint_name(),
+                    os_version="Ubuntu (simulated)" if not is_real() else "Ubuntu")
     events = []
+    _report_snapshot(incident_id, {
+        "status": "open",
+        "lifecycle_stage": "incident_opened",
+        "runbook_id": None,
+    })
 
     # Step 1: Security check
     if detect_prompt_injection(user_prompt):
         _log(incident_id, "SecurityAgent", "blocked", "red", None, "Prompt injection detected")
         _push(incident_id, events, {"agent": "SecurityAgent", "message": "ALERT: Prompt injection attempt detected and blocked.", "tier": "red"})
+        update_incident(incident_id, status="escalated", resolution_summary="Prompt injection detected. Incident escalated.")
         incident = get_incident(incident_id)
         ticket = generate_escalation_ticket(incident, get_audit(incident_id))
-        update_incident(incident_id, status="escalated", resolution_summary="Prompt injection detected. Incident escalated.")
         _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket.model_dump()))
         metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
-        result = {"status": "escalated", "events": events, "runbook_id": None, "escalation_ticket": ticket.model_dump(), "metrics": metrics}
-        store.set_result(incident_id, result)
-        _report_to_monitoring(incident_id, result)
-        return result
+        result = {"status": "escalated", "events": events, "runbook_id": None,
+                  "escalation_ticket": ticket.model_dump(), "metrics": metrics,
+                  "lifecycle_stage": "safety_refused"}
+        return complete_incident(incident_id, result)
 
     _log(incident_id, "SecurityAgent", "input_check", "green", None, "No injection detected")
     _push(incident_id, events, {"agent": "SecurityAgent", "message": "Input security check passed.", "tier": "green"})
@@ -85,6 +94,11 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
     update_incident(incident_id, category=classification["category"], severity=classification["severity"])
     _log(incident_id, "TriageAgent", "classification", "green", None, json.dumps(classification))
     _push(incident_id, events, {"agent": "TriageAgent", "message": f"Classified as {classification['category']} ({classification['severity']} severity).", "tier": "green"})
+    _report_snapshot(incident_id, {
+        "status": "diagnosing",
+        "lifecycle_stage": "classified",
+        "runbook_id": None,
+    })
 
     # Step 3: Diagnostic
     executor = get_executor()
@@ -93,6 +107,11 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
     for d in diagnostics:
         _log(incident_id, "DiagnosticAgent", "diagnosis", d["safety_tier"], d["command"], d["stdout"])
         _push(incident_id, events, {"agent": "DiagnosticAgent", "message": f"Ran: {d['command']}", "tier": d["safety_tier"]})
+    _report_snapshot(incident_id, {
+        "status": "diagnosing",
+        "lifecycle_stage": "diagnostics_complete",
+        "runbook_id": None,
+    })
 
     # Step 3b: Diagnostic and Security assess concurrently.
     #
@@ -119,9 +138,20 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
     if not sec_assessment.get("security_flagged"):
         sec_assessment["root_cause"] = diag_assessment["root_cause"]
 
+    for assessment in (diag_assessment, sec_assessment):
+        tier = "yellow" if assessment.get("security_flagged") else "green"
+        _log(incident_id, assessment["agent"], "assessment", tier, None,
+             json.dumps(assessment))
+        _push(incident_id, events, {
+            "agent": assessment["agent"], "tier": tier,
+            "message": f"{assessment.get('root_cause')}: {assessment.get('evidence', '')}",
+        })
+
     reconciliation = _reconcile(diag_assessment, sec_assessment)
     usage = _collect_usage(classification, diag_assessment, sec_assessment, reconciliation)
     _usage_by_incident[incident_id] = usage
+    _log(incident_id, "IncidentCommander", "reconciliation", "yellow" if reconciliation.get("disagreement") else "green",
+         None, json.dumps(reconciliation))
 
     if reconciliation.get("disagreement"):
         _log(incident_id, "IncidentCommander", "disagreement", "yellow", None, reconciliation["detail"])
@@ -142,9 +172,33 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
             "tier": "green",
         })
 
+    _report_snapshot(incident_id, {"status": "diagnosing", "lifecycle_stage": "reconciled"})
+
+    # The reconciliation verdict controls the workflow. A security decision
+    # must stop ordinary runbook and novel remediation even if either matches.
+    if (reconciliation.get("action") == "escalate"
+            or str(reconciliation.get("decision", "")).startswith("security/")
+            or sec_assessment.get("injection_attempt")
+            or diag_assessment.get("injection_observed")):
+        summary = (f"Security assessment requires human review: {sec_assessment.get('evidence', '')} "
+                   f"Commander decision: {reconciliation.get('decision')}. Automated remediation stopped.")
+        update_incident(incident_id, status="escalated", resolution_summary=summary)
+        ticket = generate_escalation_ticket(get_incident(incident_id), get_audit(incident_id))
+        _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket.model_dump()))
+        _push(incident_id, events, {"agent": "IncidentCommander", "tier": "yellow",
+                                    "message": f"Escalating to Tier 2: {summary}"})
+        result = {"status": "escalated", "events": events, "runbook_id": None,
+                  "escalation_ticket": ticket.model_dump(),
+                  "metrics": _log_metrics(incident_id, "escalated", start, tool_calls),
+                  "lifecycle_stage": "security_escalation"}
+        return complete_incident(incident_id, result)
+
     # Step 4: Runbook match
     runbook = match_runbook(user_prompt)
     if runbook:
+        update_incident(incident_id, runbook_id=runbook.get("runbook_id"))
+        _log(incident_id, "IncidentCommander", "runbook_match", "green", None,
+             json.dumps(_runbook_for_display(runbook)))
         _push(incident_id, events, {"agent": "IncidentCommander", "message": f"Runbook found: {runbook['title']}", "tier": "green"})
 
         steps = runbook.get("remediation_steps", [])
@@ -157,6 +211,9 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
                 _push(incident_id, events, {"agent": "SecurityAgent", "message": f"BLOCKED: {cmd} — {approval['reason']}", "tier": "red"})
                 continue
 
+            _log(incident_id, "SecurityAgent", "action_permitted", approval["safety_tier"],
+                 cmd, approval["reason"])
+
             # No second consent. The user consented once, before the run
             # started; a Yellow action executes inside that window. The
             # boundary is enforced by the allowlist, not by a modal the user
@@ -166,6 +223,13 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
             tool_calls += 1
             _log(incident_id, "DiagnosticAgent", "remediation", approval["safety_tier"], cmd, output["stdout"])
             _push(incident_id, events, {"agent": "DiagnosticAgent", "message": f"Executed: {cmd}", "tier": approval["safety_tier"]})
+
+        _report_snapshot(incident_id, {
+            "status": "diagnosing",
+            "lifecycle_stage": "remediation_complete",
+            "runbook_id": runbook.get("runbook_id"),
+            "runbook": _runbook_for_display(runbook),
+        })
 
         return _finalize_runbook(incident_id, runbook, events, start, tool_calls)
 
@@ -195,19 +259,18 @@ def run_incident(incident_id: str, user_prompt: str) -> dict:
         return _with_report(incident_id, "resolved", events, start, tool_calls)
 
     # Nothing safe and confident to try, or the attempt did not hold.
-    incident = get_incident(incident_id)
-    ticket = generate_escalation_ticket(incident, get_audit(incident_id))
     update_incident(incident_id, status="escalated",
                     resolution_summary=novel["summary"])
+    incident = get_incident(incident_id)
+    ticket = generate_escalation_ticket(incident, get_audit(incident_id))
     _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket.model_dump()))
     _push(incident_id, events, {"agent": "IncidentCommander", "message": f"Escalating to Tier 2: {novel['summary']}", "tier": "yellow"})
     metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
     result = {"status": "escalated", "events": events, "runbook_id": None,
               "escalation_ticket": ticket.model_dump(), "metrics": metrics,
-              "attempted_command": novel.get("command")}
-    store.set_result(incident_id, result)
-    _report_to_monitoring(incident_id, result)
-    return result
+              "attempted_command": novel.get("command"),
+              "lifecycle_stage": "technical_escalation"}
+    return complete_incident(incident_id, result)
 
 
 # A proposal the Diagnostic Agent is not confident about is worth less than an
@@ -320,15 +383,33 @@ def _report_to_monitoring(incident_id: str, result: dict) -> None:
     the user's fix. A failed report is written to the local audit trail so the
     gap is discoverable afterwards rather than silent.
     """
-    incident = get_incident(incident_id)
-    if not incident:
-        return
-    payload = monitoring_client.build_report(incident, get_audit(incident_id), result)
-    if not monitoring_client.report(payload):
-        reason = monitoring_client.last_error()
-        if reason != "disabled":
+    _report_snapshot(incident_id, result)
+
+
+def _report_snapshot(incident_id: str, result: dict) -> bool:
+    """Send one idempotent lifecycle snapshot without affecting remediation."""
+    try:
+        incident = get_incident(incident_id)
+        if not incident:
+            return False
+        if result.get("lifecycle_stage"):
+            _log(incident_id, "IncidentCommander", "lifecycle", "green", None,
+                 f"{result['lifecycle_stage']}: {result.get('status', incident['status'])}")
+        payload = monitoring_client.build_report(incident, get_audit(incident_id), result)
+        reported = monitoring_client.report(payload)
+        if not reported:
+            reason = monitoring_client.last_error()
+            if reason != "disabled":
+                _log(incident_id, "IncidentCommander", "monitoring_unreachable", "yellow",
+                     None, reason or "unknown")
+        return reported
+    except Exception as exc:  # noqa: BLE001 - visibility cannot stop a repair
+        try:
             _log(incident_id, "IncidentCommander", "monitoring_unreachable", "yellow",
-                 None, reason or "unknown")
+                 None, f"monitoring snapshot failed: {exc}")
+        except Exception:  # noqa: BLE001 - even audit failure is non-fatal here
+            pass
+        return False
 
 
 def _reconcile(diag_assessment: dict, sec_assessment: dict) -> dict:
@@ -369,21 +450,22 @@ def _finalize_runbook(incident_id: str, runbook: dict, events: list, start: floa
         update_incident(incident_id, status="resolved",
                         resolution_summary=f"Resolved via runbook {runbook_id}",
                         runbook_id=runbook_id)
-        _push(incident_id, events, {"agent": "IncidentCommander", "message": "Verification passed. Incident resolved successfully.", "tier": "green"})
+        _push(incident_id, events, {"agent": "IncidentCommander", "message": "Technical verification passed. Awaiting the employee's confirmation.", "tier": "green"})
         return _with_report(incident_id, "resolved", events, start, tool_calls)
 
-    incident = get_incident(incident_id)
-    ticket = generate_escalation_ticket(incident, get_audit(incident_id))
     update_incident(incident_id, status="escalated",
                     resolution_summary=f"Remediation applied but verification failed for runbook {runbook_id}. Escalated to Tier 2.",
                     runbook_id=runbook_id)
+    incident = get_incident(incident_id)
+    ticket = generate_escalation_ticket(incident, get_audit(incident_id))
     _log(incident_id, "IncidentCommander", "escalation", "yellow", None, json.dumps(ticket.model_dump()))
     _push(incident_id, events, {"agent": "IncidentCommander", "message": "Verification failed. Escalating to Tier 2 with full telemetry.", "tier": "red"})
     metrics = _log_metrics(incident_id, "escalated", start, tool_calls)
-    result = {"status": "escalated", "events": events, "runbook_id": runbook_id, "escalation_ticket": ticket.model_dump(), "metrics": metrics}
-    store.set_result(incident_id, result)
-    _report_to_monitoring(incident_id, result)
-    return result
+    result = {"status": "escalated", "events": events, "runbook_id": runbook_id,
+              "escalation_ticket": ticket.model_dump(), "metrics": metrics,
+              "runbook": _runbook_for_display(runbook),
+              "lifecycle_stage": "technical_escalation"}
+    return complete_incident(incident_id, result)
 
 
 def _run_verification(incident_id: str, runbook: dict, exe, events: list) -> dict:
@@ -424,23 +506,51 @@ def _step_index(steps: list, command: str):
 
 def _with_report(incident_id: str, status: str, events: list, start: float, tool_calls: int) -> dict:
     incident = get_incident(incident_id)
-    report = generate_report(incident, get_audit(incident_id))
-    saved_report = _save_report(incident_id, report)
-    _push(incident_id, events, {"agent": "IncidentCommander", "message": "Incident report generated.", "tier": "green"})
     metrics = _log_metrics(incident_id, status, start, tool_calls)
-    result = {"status": status, "events": events, "runbook_id": incident.get("runbook_id"), "report_path": saved_report, "metrics": metrics}
+    result = {"status": status, "events": events,
+              "runbook_id": incident.get("runbook_id"),
+              "lifecycle_stage": "awaiting_user_confirmation",
+              "metrics": metrics}
+    return complete_incident(incident_id, result)
+
+
+def complete_incident(incident_id: str, result: dict) -> dict:
+    """Persist portable documentation and report any terminal/confirmation state."""
+    incident = get_incident(incident_id)
+    runbook = _find_runbook(incident.get("runbook_id")) if incident.get("runbook_id") else None
+    result.setdefault("runbook", _runbook_for_display(runbook))
+    result["incident_report"] = generate_report(incident, get_audit(incident_id))
+    if result["status"] == "resolved":
+        result["incident_report"] += "\n- **User confirmation**: pending; technical verification does not close the ticket."
+    elif incident.get("user_confirmed"):
+        result["incident_report"] += f"\n- **User confirmation**: {incident['user_confirmed']}"
+    result["report_path"] = _save_report(incident_id, result["incident_report"])
+    if result.get("events") is not None:
+        _push(incident_id, result["events"], {"agent": "IncidentCommander", "message": "Incident report generated.", "tier": "green"})
+    result["reported_to_service_desk"] = _report_snapshot(incident_id, result)
+    # Publish done only after the technical snapshot so a fast confirmation
+    # cannot be overwritten at Service Desk by a late technical result.
     store.set_result(incident_id, result)
-    _report_to_monitoring(incident_id, result)
     return result
 
 
 def _save_report(incident_id: str, report: str) -> str:
-    reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "data", "reports")
-    os.makedirs(reports_dir, exist_ok=True)
-    path = os.path.join(reports_dir, f"{incident_id}.md")
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    path = os.path.join(REPORTS_DIR, f"{incident_id}.md")
     with open(path, "w") as f:
         f.write(report)
     return path
+
+
+def _runbook_for_display(runbook: dict | None) -> dict | None:
+    """Return portable runbook data suitable for the remote Service Desk."""
+    if not runbook:
+        return None
+    return {
+        "runbook_id": runbook.get("runbook_id"),
+        "title": runbook.get("title"),
+        "steps": [dict(step) for step in runbook.get("remediation_steps", [])],
+    }
 
 
 def _log_metrics(incident_id: str, status: str, start: float, tool_calls: int) -> dict:

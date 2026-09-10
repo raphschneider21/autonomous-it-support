@@ -3,51 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IT Support Agent</title>
+    <title>IT Support Assistant</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>AI IT Support Agent</h1>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <span class="logo">IT Support Assistant</span>
+            <span id="live-indicator" class="chip chip-live hidden">Live session</span>
+        </div>
+    </header>
 
-        <!-- Screen 1: Intake -->
-        <div id="screen-intake" class="screen active">
-            <div class="warning-banner">
-                <span class="warning-icon" aria-hidden="true">&#9888;&#65039;</span>
-                <div>
-                    <strong>AI IT Assistant Active</strong>
-                    <p>The AI troubleshooter is preparing to inspect your local system settings and application logs. No personal files will be accessed. You can click "Stop / Cancel" at any time.</p>
+    <main class="container">
+
+        <!-- ===== Screen 1: Report issue ===== -->
+        <section id="screen-intake" class="screen active">
+            <div class="card">
+                <div class="card-header">
+                    <h1>How can we help?</h1>
+                    <p class="lead">Describe what is not working and the assistant will take a look.</p>
+                </div>
+                <label class="field-label" for="user-prompt">Describe your problem</label>
+                <textarea id="user-prompt" rows="4"
+                    placeholder="e.g. Print jobs are stuck in the queue and I cannot delete them."></textarea>
+                <p id="intake-error" class="form-error hidden" role="alert"></p>
+                <div class="action-row">
+                    <button id="btn-to-consent" class="btn-primary">Continue</button>
                 </div>
             </div>
-            <h2>What's your issue?</h2>
-            <textarea id="user-prompt" placeholder="Describe your problem... (e.g. 'My printer is stuck and I cannot cancel the print job')" rows="4"></textarea>
-            <div class="button-group">
-                <button onclick="startDiagnosis()" class="btn-primary">Start Diagnostics</button>
-                <button onclick="cancelAll()" class="btn-danger">Cancel</button>
-            </div>
-        </div>
+        </section>
 
-        <!-- Screen 2: Live Progress -->
-        <div id="screen-progress" class="screen">
-            <h2>Investigating...</h2>
-            <div id="event-feed" class="event-feed"></div>
-            <button onclick="emergencyStop()" class="btn-danger" style="margin-top: 1rem;">Emergency Stop</button>
-        </div>
+        <!-- ===== Screen 2: Consent / scope ===== -->
+        <section id="screen-consent" class="screen">
+            <div class="card">
+                <div class="card-header">
+                    <h1>Start automated troubleshooting?</h1>
+                    <p class="lead">You authorise a short, guided fix up front. Nothing happens without your consent.</p>
+                </div>
 
-        <!-- Screen 3: Resolution -->
-        <div id="screen-resolution" class="screen">
-            <h2 id="resolution-title">Resolution</h2>
-            <div id="resolution-details"></div>
-            <div id="resolution-question" class="hidden">
-                <p>Did this fix your issue?</p>
-                <div class="button-group">
-                    <button onclick="confirmResolved()" class="btn-primary">Yes, Problem Solved</button>
-                    <button onclick="reportStillBroken()" class="btn-danger">No, Still Broken</button>
+                <div class="permission-block permission-can">
+                    <h2>The support assistant will:</h2>
+                    <ul class="permission-list">
+                        <li><span class="check-icon" aria-hidden="true">&#10003;</span> Inspect relevant system and service status</li>
+                        <li><span class="check-icon" aria-hidden="true">&#10003;</span> Run approved troubleshooting actions</li>
+                        <li><span class="check-icon" aria-hidden="true">&#10003;</span> Record its work in the support ticket</li>
+                    </ul>
+                </div>
+
+                <div class="permission-block permission-cannot">
+                    <h2>It cannot:</h2>
+                    <ul class="permission-list">
+                        <li><span class="cross-icon" aria-hidden="true">&#10005;</span> Access unrelated personal files</li>
+                        <li><span class="cross-icon" aria-hidden="true">&#10005;</span> Run commands outside the approved policy</li>
+                        <li><span class="cross-icon" aria-hidden="true">&#10005;</span> Bypass security controls</li>
+                    </ul>
+                </div>
+
+                <p id="consent-summary" class="consent-summary"></p>
+
+                <div class="action-row">
+                    <button id="btn-back-intake" class="btn-secondary">Back</button>
+                    <button id="btn-start-troubleshooting" class="btn-primary">Start troubleshooting</button>
                 </div>
             </div>
-            <button onclick="resetUI()" class="btn-secondary">New Incident</button>
-        </div>
-    </div>
+        </section>
+
+        <!-- ===== Screen 3: Investigating ===== -->
+        <section id="screen-progress" class="screen">
+            <div class="card">
+                <div class="progress-head">
+                    <h1 id="progress-title">Troubleshooting in progress</h1>
+                    <div class="progress-spinner" aria-hidden="true"></div>
+                </div>
+                <ol id="progress-steps" class="progress-list" aria-live="polite"></ol>
+                <div class="stop-row">
+                    <button id="btn-stop" class="btn-ghost">Stop and return to start</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Screen 4: Technical result ===== -->
+        <section id="screen-result" class="screen">
+            <div class="card">
+                <div class="card-header">
+                    <h1 id="result-title">Result</h1>
+                </div>
+
+                <div id="result-success-banner" class="card-outcome outcome-success hidden">
+                    <div class="outcome-icon" aria-hidden="true">&#10004;</div>
+                    <div>
+                        <h2>The issue looks fixed</h2>
+                        <p id="result-success-summary">The assistant applied a fix and verified it worked.</p>
+                    </div>
+                </div>
+
+                <div id="result-neutral-banner" class="card-outcome outcome-neutral hidden">
+                    <div class="outcome-icon" aria-hidden="true">&#8505;</div>
+                    <div>
+                        <h2 id="result-neutral-title">Troubleshooting complete</h2>
+                        <p id="result-neutral-summary">The assistant finished reviewing your issue.</p>
+                    </div>
+                </div>
+
+                <div id="verdict-block" class="verdict hidden">
+                    <p class="verdict-question">Did the assistant fix your problem?</p>
+                    <p id="verdict-error" class="form-error hidden" role="alert"></p>
+                    <div class="action-row">
+                        <button id="btn-solved" class="btn-primary">Yes, problem solved</button>
+                        <button id="btn-still-broken" class="btn-danger">Still broken</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Screen 5: Closed ===== -->
+        <section id="screen-closed" class="screen">
+            <div class="card">
+                <div class="card-header">
+                    <h1>All set!</h1>
+                    <p class="lead">Thank you for confirming. The support request is now closed.</p>
+                </div>
+                <p class="ticket-line">Ticket <code id="closed-ticket">INC-…</code></p>
+                <div class="action-row">
+                    <button id="btn-new-incident" class="btn-primary">Report another problem</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Screen 6: Escalated ===== -->
+        <section id="screen-escalated" class="screen">
+            <div class="card">
+                <div class="card-header">
+                    <h1>Human IT support will take over</h1>
+                    <p class="lead">This issue needs a person. The diagnostics already gathered have been attached, so you won't need to repeat anything.</p>
+                </div>
+                <p class="ticket-line">Ticket <code id="escalated-ticket">INC-…</code></p>
+                <div class="action-row">
+                    <button id="btn-new-incident-2" class="btn-primary">Report another problem</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Screen 7: Refused / security blocked ===== -->
+        <section id="screen-refused" class="screen">
+            <div class="card">
+                <div class="card-header">
+                    <h1>This request cannot be completed automatically</h1>
+                    <p class="lead">The requested action goes beyond what the support assistant is allowed to do, so it was stopped and the case was recorded for human review.</p>
+                </div>
+                <p class="ticket-line">Ticket <code id="refused-ticket">INC-…</code></p>
+                <div class="action-row">
+                    <button id="btn-new-incident-3" class="btn-primary">Report another problem</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Screen 8: Error ===== -->
+        <section id="screen-error" class="screen">
+            <div class="card">
+                <div class="card-header">
+                    <h1>Something went wrong</h1>
+                    <p id="error-message" class="lead">Could not reach the support service.</p>
+                </div>
+                <div class="action-row">
+                    <button id="btn-error-retry" class="btn-primary">Try again</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="footer-note">This is a demonstration environment. Nothing outside the simulated service scope is touched.</footer>
+
     <script src="/static/app.js"></script>
 </body>
 </html>

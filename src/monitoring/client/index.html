@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,45 +9,79 @@
 <body>
     <header class="topbar">
         <div class="brand">
-            <span class="dot" id="live-dot" title="polling"></span>
-            <h1>IT Service Desk</h1>
-            <span class="sub">Tier-1 autonomous agent · Ubuntu 26.04 endpoints</span>
+            <span class="mark" aria-hidden="true"></span>
+            <div>
+                <h1>IT Service Desk</h1>
+                <p class="sub">Autonomous Tier&nbsp;1 &middot; Ubuntu endpoints</p>
+            </div>
         </div>
-        <div class="endpoint" id="endpoint-label">monitoring · localhost:8001</div>
+
+        <nav class="modes" role="tablist" aria-label="View">
+            <button class="mode active" data-mode="tickets" role="tab" aria-selected="true">Tickets</button>
+            <button class="mode" data-mode="live" role="tab" aria-selected="false">Live Operations</button>
+        </nav>
+
+        <div class="conn">
+            <span class="dot" id="conn-dot"></span>
+            <span id="conn-label">connecting&hellip;</span>
+        </div>
     </header>
 
-    <section class="stats" id="stats" aria-label="Summary">
-        <div class="stat"><span class="stat-label">Open</span><span class="stat-value" id="s-open">–</span></div>
-        <div class="stat"><span class="stat-label">Closed</span><span class="stat-value ok" id="s-closed">–</span></div>
-        <div class="stat"><span class="stat-label">Escalated</span><span class="stat-value warn" id="s-escalated">–</span></div>
-        <div class="stat"><span class="stat-label">Auto-resolution</span><span class="stat-value" id="s-auto">–</span></div>
-        <div class="stat" title="Agent verified its own fix, user said the problem was still there">
-            <span class="stat-label">False resolution</span><span class="stat-value crit" id="s-false">–</span>
+    <!-- ============================ TICKETS ============================ -->
+    <main id="view-tickets">
+        <section class="metrics" aria-label="Queue summary">
+            <div class="metric"><span class="m-label">Investigating</span><span class="m-value" id="m-open">&ndash;</span></div>
+            <div class="metric"><span class="m-label">Closed</span><span class="m-value ok" id="m-closed">&ndash;</span></div>
+            <div class="metric"><span class="m-label">Escalated to L2</span><span class="m-value warn" id="m-escalated">&ndash;</span></div>
+            <div class="metric"><span class="m-label">Resolved by automation</span><span class="m-value" id="m-auto">&ndash;</span></div>
+            <div class="metric" title="Automated verification passed, but the employee reported the problem was still present.">
+                <span class="m-label">False resolution</span><span class="m-value crit" id="m-false">&ndash;</span>
+            </div>
+            <div class="metric"><span class="m-label">Engine latency</span><span class="m-value" id="m-latency">&ndash;</span></div>
+        </section>
+
+        <div class="layout">
+            <section class="queue-pane" aria-label="Ticket queue">
+                <div class="filters" role="tablist" aria-label="Filter tickets">
+                    <button class="filter active" data-status="all">All</button>
+                    <button class="filter" data-status="open">Active</button>
+                    <button class="filter" data-status="closed">Closed</button>
+                    <button class="filter" data-status="escalated">Escalated</button>
+                </div>
+                <ul class="queue" id="queue">
+                    <li class="empty">Waiting for the first incident&hellip;</li>
+                </ul>
+            </section>
+
+            <section class="detail-pane" id="detail" aria-label="Ticket detail">
+                <div class="placeholder">
+                    <h2>No ticket selected</h2>
+                    <p>Choose a ticket to see what the automated Tier&nbsp;1 system found,
+                       which commands it ran, what it refused, and why a human was involved.</p>
+                </div>
+            </section>
         </div>
-        <div class="stat"><span class="stat-label">Avg latency</span><span class="stat-value" id="s-latency">–</span></div>
-        <div class="stat"><span class="stat-label">Tokens</span><span class="stat-value" id="s-tokens">–</span></div>
-    </section>
+    </main>
 
-    <main class="layout">
-        <section class="list-pane">
-            <div class="filters" role="tablist">
-                <button class="filter active" data-status="all">All</button>
-                <button class="filter" data-status="open">Open</button>
-                <button class="filter" data-status="closed">Closed</button>
-                <button class="filter" data-status="escalated">Escalated</button>
-            </div>
-            <ul class="tickets" id="ticket-list">
-                <li class="empty">Waiting for the first incident…</li>
-            </ul>
-        </section>
-
-        <section class="detail-pane" id="detail">
-            <div class="placeholder">
-                <h2>No ticket selected</h2>
-                <p>Pick a ticket to see what the agents did, which commands ran under
-                   which safety tier, and what was refused.</p>
-            </div>
-        </section>
+    <!-- ======================== LIVE OPERATIONS ======================== -->
+    <main id="view-live" hidden>
+        <div class="live-shell">
+            <header class="live-head">
+                <div>
+                    <h2>Live Operations</h2>
+                    <p class="live-sub" id="live-sub">No active incident</p>
+                </div>
+                <dl class="live-facts">
+                    <div><dt>Incident</dt><dd id="live-id">&ndash;</dd></div>
+                    <div><dt>Endpoint</dt><dd id="live-endpoint">&ndash;</dd></div>
+                    <div><dt>Status</dt><dd id="live-status">&ndash;</dd></div>
+                    <div><dt>Owner</dt><dd id="live-owner">&ndash;</dd></div>
+                </dl>
+            </header>
+            <ol class="trace" id="trace">
+                <li class="trace-empty">Select a ticket, or wait for the endpoint to report one.</li>
+            </ol>
+        </div>
     </main>
 
     <script src="/static/app.js"></script>

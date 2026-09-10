@@ -1,0 +1,64 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Lab - Endpoint Exercise</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/demo.css">
+</head>
+<body>
+    <div class="brand-bar brand-bar-demo">
+        <div class="brand-bar-inner">
+            <span class="brand-mark" aria-hidden="true">DL</span>
+            <div class="brand-text">
+                <span class="brand-name">Demo Lab</span>
+                <span class="brand-sub">Endpoint exercise - presenter controls</span>
+            </div>
+            <span class="chip chip-demo" id="mode-badge">Simulated Endpoint</span>
+        </div>
+    </div>
+
+    <main class="container container-demo">
+
+        <section class="endpoint-panel card">
+            <div class="endpoint-head">
+                <div>
+                    <h1 id="endpoint-name">ubuntu-demo-01</h1>
+                    <p class="lead">Simulated Ubuntu endpoint for the live demonstration.</p>
+                </div>
+                <div class="endpoint-state" id="endpoint-state">
+                    <span class="state-pill pill-ok">Healthy</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card services-panel">
+            <h2 class="section-title">Service Status</h2>
+            <div id="services-grid" class="services-grid">
+                <div class="service-row">
+                    <span class="service-name">Loading</span>
+                    <span class="state-pill">&hellip;</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card fault-panel">
+            <h2 class="section-title">Fault Injection</h2>
+            <p class="panel-note">Choose a fault to inject a simulated problem into the endpoint. Use Reset to restore all services.</p>
+            <div id="fault-buttons" class="fault-buttons">
+                <p class="empty-state">Waiting for Demo Lab backend&hellip;</p>
+            </div>
+            <div id="fault-action-feedback" class="fault-feedback"></div>
+        </section>
+
+        <section class="card reset-panel">
+            <button id="btn-reset" class="btn-secondary btn-reset">Reset Endpoint</button>
+        </section>
+
+        <p class="footnote">Demo environment - faults are simulated, no real services are affected.</p>
+    </main>
+
+    <script src="/static/demo.js"></script>
+</body>
+</html>

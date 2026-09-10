@@ -1,19 +1,22 @@
 """Ticket store for the monitoring service.
 
-Deliberately a *separate* database from the endpoint agent's. The two run on
-different machines — the agent on the user's Ubuntu VM, monitoring on the IT
-side — so they cannot share a SQLite file, and pretending otherwise would hide
-the network hop the architecture actually has.
+Deliberately a *separate* database from the endpoint/runtime state. In the
+current graded demo both services run on the same Mac, but they remain separate
+processes with separate SQLite data and communicate over HTTP. The managed
+endpoint represented by the runtime is the simulated Ubuntu 26.04 endpoint
+`ubuntu-demo-01`, not the Mac host.
 
-A ticket is keyed by `incident_id`, so the endpoint agent can report the same
-incident repeatedly as it progresses and the row is upserted rather than
-duplicated. That also makes ingestion idempotent, which matters when the agent
-retries after a network blip.
+A ticket is keyed by `incident_id`, so the endpoint can report the same incident
+repeatedly as it progresses and the row is upserted rather than duplicated.
+That keeps ingestion idempotent and preserves the architectural boundary that
+would also apply if the endpoint service moved to another machine later.
 """
 import json
 import os
 import sqlite3
 from datetime import datetime, timezone
+
+from .presentation import presentation
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "tickets.db")
 
@@ -56,10 +59,22 @@ def init_db():
                 errors_json       TEXT DEFAULT '[]',
                 escalation_json   TEXT,
                 user_confirmed    TEXT,
+                -- Optional documentation, sent by the endpoint when available.
+                -- Both are nullable: a ticket reported early in the lifecycle
+                -- has neither, and must still ingest and render.
+                incident_report   TEXT,
+                runbook_json      TEXT,
                 created_at        TEXT NOT NULL,
                 updated_at        TEXT NOT NULL
             )
         """)
+        # Additive migration for ticket databases created before the
+        # documentation fields existed.
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(tickets)").fetchall()}
+        for column in ("incident_report", "runbook_json"):
+            if column not in existing:
+                conn.execute(f"ALTER TABLE tickets ADD COLUMN {column} TEXT")
+
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tickets_updated ON tickets(updated_at DESC)")
 
@@ -71,6 +86,12 @@ def upsert_ticket(payload: dict) -> dict:
 
     existing = get_ticket(incident_id)
     created_at = existing["created_at"] if existing else now
+
+    # Documentation arrives late in the lifecycle and is not repeated on every
+    # snapshot. A later update that omits it must not wipe what we already have.
+    for field, prior in (("incident_report", "incident_report"), ("runbook", "runbook")):
+        if existing and payload.get(field) in (None, "", {}) and existing.get(prior):
+            payload[field] = existing[prior]
 
     row = {
         "incident_id": incident_id,
@@ -91,6 +112,8 @@ def upsert_ticket(payload: dict) -> dict:
         "errors_json": json.dumps(payload.get("errors", [])),
         "escalation_json": json.dumps(payload["escalation"]) if payload.get("escalation") else None,
         "user_confirmed": payload.get("user_confirmed"),
+        "incident_report": payload.get("incident_report"),
+        "runbook_json": json.dumps(payload["runbook"]) if payload.get("runbook") else None,
         "created_at": created_at,
         "updated_at": now,
     }
@@ -110,6 +133,9 @@ def _hydrate(row: sqlite3.Row) -> dict:
     ticket["errors"] = json.loads(ticket.pop("errors_json") or "[]")
     escalation = ticket.pop("escalation_json")
     ticket["escalation"] = json.loads(escalation) if escalation else None
+    runbook = ticket.pop("runbook_json", None)
+    ticket["runbook"] = json.loads(runbook) if runbook else None
+    ticket.update(presentation(ticket))
     return ticket
 
 

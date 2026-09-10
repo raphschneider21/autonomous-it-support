@@ -161,9 +161,16 @@ def available() -> bool:
 
 def get_client():
     global _client, _client_checked
+    # Check the mode before the cache: a previously created client must not
+    # survive a switch into the deterministic demo profile.
+    if not config.external_model_enabled():
+        return None
     if _client_checked:
         return _client
     _client_checked = True
+    # AGENT_MODE=deterministic is a hard boundary, not a label.  Even if a
+    # developer has a valid key in their shell, the graded demo cannot drift
+    # onto a live/network-dependent path.
     if anthropic is None or not os.environ.get("ANTHROPIC_API_KEY"):
         _client = None
     else:
@@ -188,21 +195,23 @@ def call_agent(agent: str, user_content: str, expect_keys: tuple = ()) -> Option
     deterministic fallback", so a model problem degrades the system rather than
     breaking it.
     """
+    if not config.external_model_enabled():
+        return None
     client = get_client()
     if client is None:
         return None
 
-    config = AGENTS[agent]
+    agent_config = AGENTS[agent]
     request = {
-        "model": config.model,
-        "max_tokens": config.max_tokens,
+        "model": agent_config.model,
+        "max_tokens": agent_config.max_tokens,
         "system": SYSTEM_PROMPTS[agent],
         "messages": [{"role": "user", "content": user_content}],
     }
-    if config.thinking:
+    if agent_config.thinking:
         request["thinking"] = {"type": "adaptive"}
-    if config.effort:
-        request["output_config"] = {"effort": config.effort}
+    if agent_config.effort:
+        request["output_config"] = {"effort": agent_config.effort}
 
     try:
         response = client.messages.create(**request)
@@ -225,7 +234,7 @@ def call_agent(agent: str, user_content: str, expect_keys: tuple = ()) -> Option
             "input_tokens": getattr(usage, "input_tokens", 0),
             "output_tokens": getattr(usage, "output_tokens", 0),
             "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
-            "model": config.model,
+            "model": agent_config.model,
         }
     parsed["_source"] = "claude"
     return parsed
