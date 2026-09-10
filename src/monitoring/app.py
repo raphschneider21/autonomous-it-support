@@ -1,17 +1,18 @@
 """Monitoring service — the IT side of the system.
 
-Runs as its own process, on its own port, against its own database. In the demo
-it runs on the presenter's Mac while the endpoint agent runs on the Ubuntu VM,
-so the two talk over real HTTP:
+Runs as its own process, on its own port, against its own database. In the graded
+demo it runs on the same Mac as the endpoint/runtime process, but the services
+remain logically separate and communicate over HTTP:
 
-    Ubuntu VM   http://localhost:8000   the employee's troubleshooter
-    Mac         http://localhost:8001   the IT service desk
+    Employee Support / runtime   http://127.0.0.1:8000
+    IT Service Desk              http://127.0.0.1:8001
 
-Each machine reaches its own app on localhost. Nothing about the code changes if
-they run on the same host — the endpoint agent's `MONITORING_URL` is the only
-thing that differs, which is the point.
+The managed endpoint itself is the explicitly simulated Ubuntu 26.04 endpoint
+`ubuntu-demo-01`; the Mac host is not being repaired. Keeping separate services
+and databases preserves the endpoint-to-central-IT architecture without adding
+a physical VM dependency to the mock-backed demo.
 
-    uvicorn src.monitoring.app:app --host 0.0.0.0 --port 8001
+    python3 -m uvicorn src.monitoring.app:app --host 127.0.0.1 --port 8001
 """
 import os
 
