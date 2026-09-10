@@ -3,6 +3,7 @@ import json
 import os
 import re
 from .executor_interface import IExecutor
+from ..demo.state import demo_endpoint
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures")
 FIXTURES_PATH = os.path.join(FIXTURES_DIR, "mock_outputs.json")
@@ -16,9 +17,10 @@ class MockExecutor(IExecutor):
     (service stop -> fix -> start -> verify running) can be demonstrated.
     """
 
-    def __init__(self):
+    def __init__(self, endpoint_state=None):
         self.outputs = self._load_fixtures()
         self.service_state = {"spooler": "Stopped"}
+        self.endpoint_state = endpoint_state or demo_endpoint
 
     def _load_fixtures(self) -> dict:
         """Load `mock_outputs.json`, then any per-platform `mock_outputs_*.json`.
@@ -52,6 +54,13 @@ class MockExecutor(IExecutor):
 
     def run(self, command: str, timeout: int = 30) -> dict:
         lower = re.sub(r"\s+", " ", command.lower()).strip()
+
+        # Ubuntu hero scenario. Diagnostics, remediation and verification all
+        # observe the same state object that Demo Lab mutates.
+        endpoint_state = getattr(self, "endpoint_state", demo_endpoint)
+        cups_result = endpoint_state.run_cups_command(lower)
+        if cups_result is not None:
+            return cups_result
 
         # Stateful print spooler lifecycle (overrides static fixtures)
         if "start-service -name spooler" in lower:
