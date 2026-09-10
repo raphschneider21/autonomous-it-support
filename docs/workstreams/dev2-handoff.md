@@ -153,7 +153,7 @@ runs**, not hand-written, so the UI renders genuine audit data.
 
 ## 6. Tests
 
-**32 monitoring tests** in `tests/test_service_desk.py`; **583 in the repo**, all
+**32 monitoring tests** in `tests/test_service_desk.py`; **558 in the repo**, all
 passing.
 
 Covers: partial ingestion, idempotent updates, documentation persistence and
