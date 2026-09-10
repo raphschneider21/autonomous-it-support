@@ -1,0 +1,93 @@
+{
+  "incident_id": "INC-A82F91D3",
+  "hostname": "ubuntu-demo-01",
+  "title": "Print jobs are stuck in the queue and I cannot delete them",
+  "status": "resolved",
+  "category": "printing",
+  "severity": "medium",
+  "user_prompt": "Print jobs are stuck in the queue and I cannot delete them",
+  "runbook_id": "RB-CUPS-001",
+  "resolution": "Resolved via runbook RB-CUPS-001",
+  "agent_source": null,
+  "latency_ms": 6.0,
+  "tool_calls": 6,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "actions": [
+    {
+      "timestamp": "2026-09-10T08:57:20.677740",
+      "agent": "SecurityAgent",
+      "action": "input_check",
+      "tier": "green",
+      "command": null,
+      "output": "No injection detected"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.678909",
+      "agent": "TriageAgent",
+      "action": "classification",
+      "tier": "green",
+      "command": null,
+      "output": "{\"category\": \"printing\", \"severity\": \"medium\", \"symptoms\": [\"Print jobs are stuck in the queue and I cannot delete them\"], \"reasoning\": \"Report mentions printing vocabulary.\", \"_source\": \"keyword-fallback\"}"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.679887",
+      "agent": "DiagnosticAgent",
+      "action": "diagnosis",
+      "tier": "green",
+      "command": "systemctl is-active cups",
+      "output": "active"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.680170",
+      "agent": "DiagnosticAgent",
+      "action": "diagnosis",
+      "tier": "green",
+      "command": "lpstat -o",
+      "output": ""
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.681483",
+      "agent": "DiagnosticAgent",
+      "action": "remediation",
+      "tier": "yellow",
+      "command": "cancel -a",
+      "output": ""
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.681874",
+      "agent": "DiagnosticAgent",
+      "action": "remediation",
+      "tier": "yellow",
+      "command": "sudo systemctl restart cups",
+      "output": "[MOCK] cups.service restarted."
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.682178",
+      "agent": "DiagnosticAgent",
+      "action": "verification",
+      "tier": "green",
+      "command": "systemctl is-active cups",
+      "output": "active"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.682471",
+      "agent": "DiagnosticAgent",
+      "action": "verification",
+      "tier": "green",
+      "command": "lpstat -o",
+      "output": ""
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.683454",
+      "agent": "IncidentCommander",
+      "action": "metrics",
+      "tier": "green",
+      "command": null,
+      "output": "{\"status\": \"resolved\", \"latency_ms\": 6.0, \"tool_calls\": 6, \"input_tokens\": 0, \"output_tokens\": 0, \"agents_called\": 0, \"models\": []}"
+    }
+  ],
+  "errors": [],
+  "escalation": null,
+  "user_confirmed": "solved"
+}

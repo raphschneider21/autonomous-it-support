@@ -49,6 +49,10 @@ class TicketReport(BaseModel):
     errors: list[dict] = Field(default_factory=list)
     escalation: dict | None = None
     user_confirmed: str | None = None
+    # Optional documentation, per the frozen shared contract. Both nullable so
+    # an early-lifecycle snapshot ingests exactly as well as a final one.
+    incident_report: str | None = None
+    runbook: dict | None = None
 
 
 @app.on_event("startup")
