@@ -1,4 +1,14 @@
 {
+  "uname -a": {
+    "exit_code": 0,
+    "stdout": "Linux ubuntu-demo-01 7.0.0-generic x86_64 GNU/Linux [simulated Ubuntu endpoint]",
+    "stderr": ""
+  },
+  "free -h": {
+    "exit_code": 0,
+    "stdout": "               total        used        free      shared  buff/cache   available\nMem:           7.8Gi       2.1Gi       4.0Gi       100Mi       1.7Gi       5.4Gi\nSwap:          2.0Gi          0B       2.0Gi",
+    "stderr": ""
+  },
   "nmcli -t -f STATE general": {
     "exit_code": 0,
     "stdout": "connected",

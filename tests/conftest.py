@@ -48,12 +48,24 @@ def _no_live_api(request, monkeypatch):
         return
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    # Runtime configuration from a developer's shell/.env must not select real
+    # execution in engine tests, or disable the tests' explicitly fake clients.
+    monkeypatch.setenv("DEMO_MODE", "0")
+    monkeypatch.setenv("AGENT_MODE", "auto")
+    monkeypatch.setenv("EXECUTOR", "mock")
+
+    from src.executors import factory
+    from src.demo.state import demo_endpoint
+    factory.reset_cache()
+    demo_endpoint.reset()
 
     from src.engine import llm
 
     llm.reset_client()
     yield
     llm.reset_client()
+    factory.reset_cache()
+    demo_endpoint.reset()
 
 
 @pytest.fixture(autouse=True)

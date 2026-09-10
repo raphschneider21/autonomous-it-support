@@ -1,6 +1,7 @@
 import json
 import os
 import uuid
+from datetime import datetime
 
 from . import config  # noqa: F401 - loads .env on import
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -9,13 +10,21 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from .models import IncidentCreate
-from .database import init_db, get_incident, update_incident, get_audit_log, get_all_runbooks
+from .database import (
+    init_db,
+    get_incident,
+    update_incident,
+    get_audit_log,
+    get_all_runbooks,
+    insert_audit,
+)
 from .integrations import monitoring_client
 from .executors import factory as executor_factory
-from .knowledge.runbook_parser import seed_runbooks_db
-from .engine.incident_commander import run_incident
+from .knowledge.runbook_parser import seed_runbooks_db, active_store
+from .engine.incident_commander import run_incident, complete_incident
 from .integrations.escalation import generate_escalation_ticket
 from .engine.event_stream import store
+from .demo.state import demo_endpoint
 
 app = FastAPI(title="Autonomous IT Support Agent")
 
@@ -32,8 +41,12 @@ def startup():
     # loud on every start.
     mode = executor_factory.describe()
     banner = "REAL — commands will run on this machine" if mode["executes_on_this_machine"] \
-        else "MOCK — fixture output only, this machine is not touched"
+        else "MOCK — simulated endpoint state and fixtures; this machine is not touched"
     print(f"[startup] executor: {banner}")
+    if mode["demo_safety_override"]:
+        print(f"[startup] CONFIGURATION CONFLICT: {mode['note']}")
+    print(f"[startup] demo mode: {'enabled' if config.demo_mode_enabled() else 'disabled'}; "
+          f"agent path: {config.agent_mode()}")
     print(f"[startup] service desk: {monitoring_client.monitoring_url()} "
           f"({'enabled' if monitoring_client.enabled() else 'disabled'})")
 
@@ -43,10 +56,41 @@ def health():
     """Health, plus the two facts a deployment most often gets wrong."""
     return {
         "status": "ok",
+        "endpoint": config.endpoint_name(),
+        "demo_mode": config.demo_mode_enabled(),
+        "agent_mode": config.agent_mode(),
+        "requested_agent_mode": config.requested_agent_mode(),
+        "external_model_enabled": config.external_model_enabled(),
+        "runbook_store": active_store(),
         **executor_factory.describe(),
         "monitoring_url": monitoring_client.monitoring_url(),
         "monitoring_enabled": monitoring_client.enabled(),
+        "monitoring_reachable": monitoring_client.reachable(),
     }
+
+
+@app.get("/api/demo/state")
+def get_demo_state():
+    """Return the shared simulated endpoint state for Demo Lab."""
+    return demo_endpoint.snapshot()
+
+
+@app.post("/api/demo/faults/{fault_id}")
+def inject_demo_fault(fault_id: str):
+    """Inject one approved deterministic fault into the simulation."""
+    try:
+        return demo_endpoint.inject_fault(fault_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown demo fault: {fault_id}",
+        ) from None
+
+
+@app.post("/api/demo/reset")
+def reset_demo_state():
+    """Idempotently restore the simulated endpoint's healthy baseline."""
+    return demo_endpoint.reset()
 
 
 @app.post("/api/incidents")
@@ -115,6 +159,8 @@ def confirm_resolution(incident_id: str, body: Confirmation):
         raise HTTPException(status_code=404, detail="Incident not found")
 
     verdict = "solved" if body.solved else "still_broken"
+    if incident["status"] != "resolved" and incident.get("user_confirmed") != verdict:
+        raise HTTPException(status_code=409, detail="This incident is not awaiting user confirmation")
     status = "closed" if body.solved else "escalated"
     summary = (
         incident.get("resolution_summary")
@@ -122,25 +168,44 @@ def confirm_resolution(incident_id: str, body: Confirmation):
         "Agent verification passed but the user reports the problem persists. "
         "Escalated to Tier 2 with the full record of attempted remediations."
     )
-    update_incident(incident_id, user_confirmed=verdict, status=status,
-                    resolution_summary=summary)
+    if incident.get("user_confirmed") != verdict:
+        update_incident(incident_id, user_confirmed=verdict, status=status,
+                        resolution_summary=summary)
+        insert_audit({
+            "incident_id": incident_id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "agent_name": "User",
+            "action_type": "user_confirmation",
+            "safety_tier": "green",
+            "command_executed": None,
+            "output": verdict,
+        })
 
     incident = get_incident(incident_id)
     audit = get_audit_log(incident_id)
-    result = {"status": status, "runbook_id": incident.get("runbook_id")}
+    prior_result = store.get_result(incident_id) or {}
+    # Keep technical metrics even after a process restart loses the SSE cache.
+    metrics = prior_result.get("metrics")
+    if metrics is None:
+        metrics = next((json.loads(e["output"]) for e in reversed(audit)
+                        if e["action_type"] == "metrics"), {})
+    result = {
+        **prior_result,
+        "status": status,
+        "runbook_id": incident.get("runbook_id"),
+        "metrics": metrics,
+        "lifecycle_stage": "user_confirmed_solved" if body.solved else "user_confirmed_still_broken",
+    }
     if not body.solved:
         result["escalation_ticket"] = generate_escalation_ticket(incident, audit).model_dump()
 
-    payload = monitoring_client.build_report(incident, audit, result)
-    payload["user_confirmed"] = verdict
-    payload["status"] = status
-    reported = monitoring_client.report(payload)
+    result = complete_incident(incident_id, result)
 
     return {
         "incident_id": incident_id,
         "status": status,
         "user_confirmed": verdict,
-        "reported_to_service_desk": reported,
+        "reported_to_service_desk": result["reported_to_service_desk"],
         "escalation_ticket": result.get("escalation_ticket"),
     }
 

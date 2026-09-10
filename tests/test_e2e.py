@@ -206,10 +206,10 @@ def test_multi_agent_disagreement_reconciled_through_api(client):
     assert any("Disagreement detected" in m for m in messages), messages
     assert any("infrastructure/unknown vs security/credential_harvesting" in m for m in messages), messages
     assert any("Reconciled in favor of SecurityAgent" in m for m in messages), messages
-    # An unmatched incident no longer escalates on the spot: it asks the
-    # Diagnostic Agent for a reasoned fix first, and escalates only when there
-    # is nothing safe and confident to try.
-    assert any("No runbook matched. Asking the Diagnostic Agent" in m for m in messages), messages
+    # Frozen demo contract: the security reconciliation must stop ordinary
+    # remediation. The old assertion asked for a novel fix despite that verdict.
+    assert not any("Asking the Diagnostic Agent for a reasoned fix" in m for m in messages), messages
+    assert not any("Executed:" in m for m in messages), messages
     assert any("Escalating to Tier 2" in m for m in messages), messages
 
     assert frames[-1]["data"]["status"] == "escalated"
