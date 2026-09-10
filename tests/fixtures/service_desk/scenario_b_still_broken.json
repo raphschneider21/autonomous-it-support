@@ -1,0 +1,101 @@
+{
+  "incident_id": "INC-B31902F1",
+  "hostname": "ubuntu-demo-01",
+  "title": "I cannot resolve any hostnames, DNS seems broken",
+  "status": "escalated",
+  "category": "network",
+  "severity": "high",
+  "user_prompt": "I cannot resolve any hostnames, DNS seems broken",
+  "runbook_id": "RB-DNS-002",
+  "resolution": "Resolved via runbook RB-DNS-002",
+  "agent_source": null,
+  "latency_ms": 4.7,
+  "tool_calls": 7,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "actions": [
+    {
+      "timestamp": "2026-09-10T08:57:20.684795",
+      "agent": "SecurityAgent",
+      "action": "input_check",
+      "tier": "green",
+      "command": null,
+      "output": "No injection detected"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.685877",
+      "agent": "TriageAgent",
+      "action": "classification",
+      "tier": "green",
+      "command": null,
+      "output": "{\"category\": \"network\", \"severity\": \"high\", \"symptoms\": [\"I cannot resolve any hostnames, DNS seems broken\"], \"reasoning\": \"Report mentions network vocabulary.\", \"_source\": \"keyword-fallback\"}"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.686226",
+      "agent": "DiagnosticAgent",
+      "action": "diagnosis",
+      "tier": "green",
+      "command": "nmcli -t -f STATE general",
+      "output": "connected"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.686495",
+      "agent": "DiagnosticAgent",
+      "action": "diagnosis",
+      "tier": "green",
+      "command": "resolvectl status",
+      "output": "[MOCK] No fixture for: resolvectl status"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.686757",
+      "agent": "DiagnosticAgent",
+      "action": "diagnosis",
+      "tier": "green",
+      "command": "rfkill list",
+      "output": "0: hci0: Bluetooth\n\tSoft blocked: no\n\tHard blocked: no\n1: phy0: Wireless LAN\n\tSoft blocked: no\n\tHard blocked: no"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.687021",
+      "agent": "DiagnosticAgent",
+      "action": "diagnosis",
+      "tier": "green",
+      "command": "ping -c 4 1.1.1.1",
+      "output": "PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.\n64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=8.71 ms\n64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=9.02 ms\n64 bytes from 1.1.1.1: icmp_seq=3 ttl=57 time=8.44 ms\n64 bytes from 1.1.1.1: icmp_seq=4 ttl=57 time=8.90 ms\n\n--- 1.1.1.1 ping statistics ---\n4 packets transmitted, 4 received, 0% packet loss, time 3005ms"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.687570",
+      "agent": "DiagnosticAgent",
+      "action": "remediation",
+      "tier": "yellow",
+      "command": "sudo systemctl restart systemd-resolved",
+      "output": "[MOCK] systemd-resolved restarted."
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.687850",
+      "agent": "DiagnosticAgent",
+      "action": "verification",
+      "tier": "green",
+      "command": "systemctl is-active systemd-resolved",
+      "output": "active"
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.688135",
+      "agent": "DiagnosticAgent",
+      "action": "verification",
+      "tier": "green",
+      "command": "resolvectl query ubuntu.com",
+      "output": "ubuntu.com: 185.125.190.21 -- link: enp0s3\n            185.125.190.20 -- link: enp0s3\n\n-- Information acquired via protocol DNS in 12.4ms."
+    },
+    {
+      "timestamp": "2026-09-10T08:57:20.689212",
+      "agent": "IncidentCommander",
+      "action": "metrics",
+      "tier": "green",
+      "command": null,
+      "output": "{\"status\": \"resolved\", \"latency_ms\": 4.7, \"tool_calls\": 7, \"input_tokens\": 0, \"output_tokens\": 0, \"agents_called\": 0, \"models\": []}"
+    }
+  ],
+  "errors": [],
+  "escalation": null,
+  "user_confirmed": "still_broken"
+}
