@@ -1,106 +1,43 @@
-# Dual-Documentation System Specification
+# Operational Runbooks and Human Incident Reports
 
-## 1. Rationale & Core Design
-A critical innovation of this project is the strict separation between **AI-Executable Runbooks** and **Human-Readable Incident Reports**:
-- **Why AI needs its own format**: LLMs reasoning from scratch on every ticket is slow, nondeterministic, and burns token quotas. When an issue is solved once, it is compiled into a deterministic, machine-readable runbook (YAML/JSON). The next time symptoms match, the agent executes the runbook directly with zero hallucination.
-- **Why Humans need their own format**: IT administrators and compliance auditors need a clear, jargon-free summary of what the agent did, why it did it, which safety checks passed, and the exact timestamped actions taken.
+## 1. Why the project separates the two
 
----
+The PoC uses two different forms of documentation with different trust and lifecycle properties:
 
-## 2. Specification A: AI-Executable Runbook (YAML)
+```text
+Operational runbook
+= pre-existing, machine-readable knowledge that may guide a known remediation
 
-### Schema Definition
-> **v1.1** (frozen 2026-09-09, `docs/schema.md` §1). Three optional fields
-> were added additively: `parameters`, `environment`, `source_case`.
-
-```yaml
-schema_version: "1.1"
-runbook_id: string                   # Unique ID, e.g., "RB-CUPS-001"
-title: string                        # Descriptive name
-target_os: string                    # "windows_11" | "ubuntu_26_04"
-environment: string                  # v1.1: "vm-safe" | "physical-only"
-source_case: string                  # v1.1: training-dataset case ID, e.g. "UB-029"
-tags: [string]                       # Keywords for fast indexing
-
-parameters:                          # v1.1: resolved into commands at load time
-  - name: string                     # placeholder written as {name} in a command
-    description: string              # what a technician should put here
-    default: string                  # value used when nothing overrides it
-
-trigger_signatures:
-  error_codes: [string]              # Event Viewer or API error codes
-  process_names: [string]            # Related executables
-  symptoms: [string]                 # Natural language symptom matches
-
-pre_checks:                          # Read-only verification before action
-  - id: string
-    command: string                  # Diagnostic command
-    expected_output_regex: string    # Must match to proceed
-
-remediation_steps:                   # Ordered recovery actions
-  - step: integer
-    description: string
-    command: string                  # Command to execute
-    elevation_required: boolean      # Needs admin rights?
-    timeout_seconds: integer
-
-verification:                        # Confirms the fix worked
-  - command: string
-    expected_output_regex: string
-
-rollback_plan:                       # Executed if remediation fails
-  - command: string
+Incident report
+= human-readable documentation generated from one specific execution
 ```
 
-### Real-World Example: Stuck Print Spooler (`RB-PRINT-001.yaml`)
-```yaml
-schema_version: "1.0"
-runbook_id: "RB-PRINT-001"
-title: "Clear Stuck Windows Print Spooler Queue"
-target_os: "windows_11"
-tags: ["printer", "spooler", "print-job-stuck", "offline"]
+This distinction is important for both safety and demo truthfulness.
 
-trigger_signatures:
-  error_codes: ["EVENT_ID_372", "0x8007007b"]
-  process_names: ["spoolsv.exe"]
-  symptoms: ["Printer shows error", "Print jobs stuck in queue cannot delete"]
+The current runtime **does not claim to generate and promote a new executable runbook automatically after solving an incident**. `RB-CUPS-001` and other runbooks are pre-existing reviewed knowledge. The incident report is the artifact generated from the current case.
 
-pre_checks:
-  - id: "check_spooler_running"
-    command: "Get-Service -Name spooler | Select-Object -ExpandProperty Status"
-    expected_output_regex: "Running|Stopped"
+A future ingestion/authoring workflow for turning institutional knowledge into reviewed runbooks is described separately in `docs/rag-ingestion-strategy.md` and includes a human review gate before a candidate becomes executable knowledge.
 
-remediation_steps:
-  - step: 1
-    description: "Stop the print spooler service"
-    command: "Stop-Service -Name spooler -Force"
-    elevation_required: true
-    timeout_seconds: 15
-  - step: 2
-    description: "Delete stuck shadow files from spool folder"
-    command: "Remove-Item -Path $env:SystemRoot\\System32\\spool\\PRINTERS\\* -Force -ErrorAction SilentlyContinue"
-    elevation_required: true
-    timeout_seconds: 10
-  - step: 3
-    description: "Restart the print spooler service"
-    command: "Start-Service -Name spooler"
-    elevation_required: true
-    timeout_seconds: 15
+## 2. Operational runbook
 
-verification:
-  - command: "Get-Service -Name spooler | Select-Object -ExpandProperty Status"
-    expected_output_regex: "Running"
+Runbooks are YAML documents loaded from the selected runbook store. The graded path uses:
 
-rollback_plan:
-  - command: "Start-Service -Name spooler"
+```text
+RUNBOOK_STORE=ubuntu-26.04
 ```
 
-### Real-World Example: Ubuntu 26.04 Stuck Print Queue (`RB-CUPS-001`)
+A runbook captures:
 
-The same schema on the Ubuntu 26.04 LTS VM endpoint. Note what the platform
-forces: the fix is CUPS rather than the Windows spooler, verification is
-read-only (`systemctl is-active`, `lpstat`), and every state-altering step
-lands on the Yellow tier so the approval gate fires.
+- stable identifier/title;
+- target OS/environment metadata;
+- symptoms/signatures used for retrieval;
+- read-only pre-checks;
+- ordered remediation steps;
+- post-remediation verification;
+- rollback guidance where supplied;
+- optional parameters/provenance fields.
+
+Representative schema:
 
 ```yaml
 schema_version: "1.1"
@@ -108,15 +45,11 @@ runbook_id: "RB-CUPS-001"
 title: "Print Queue Stuck and Nothing Prints (CUPS Backlogged)"
 target_os: "ubuntu_26_04"
 environment: "vm-safe"
-source_case: "UB-029"
-tags: ["printer", "printing", "queue", "cups", "stuck", "spooler", "jobs"]
+tags: ["printer", "printing", "queue", "cups", "stuck"]
 
 trigger_signatures:
   symptoms:
     - "Print jobs are stuck in the queue and nothing prints"
-    - "the printer queue will not clear"
-    - "documents sit in the print queue and never come out"
-  error_codes: []
 
 pre_checks:
   - id: "check_cups_state"
@@ -128,12 +61,10 @@ remediation_steps:
     description: "Cancel every queued print job"
     command: "cancel -a"
     elevation_required: false
-    timeout_seconds: 20
   - step: 2
     description: "Restart the CUPS printing service"
     command: "sudo systemctl restart cups"
     elevation_required: true
-    timeout_seconds: 30
 
 verification:
   - command: "systemctl is-active cups"
@@ -142,67 +73,137 @@ verification:
     expected_output_regex: "^$"
 ```
 
-**Ubuntu 26.04 authoring constraints** (enforced by
-`tests/test_ubuntu_knowledge_base.py`):
+### Runtime safety relationship
 
-| Constraint | Consequence for runbook authors |
-| --- | --- |
-| GNOME 50 is **Wayland-only** — no X11 session | `xrandr`, `setxkbmap`, `xkill`, `wmctrl` reach XWayland clients only. Use `gdctl`, `gsettings`, `pkill`. |
-| Audio is **PipeWire + WirePlumber** | `pulseaudio -k` is meaningless. Use `wpctl` (`pactl` still works via `pipewire-pulse`). |
-| Removable media mount under **`/run/media`** | Verification regexes must not expect `/media`. |
-| `sudo` is **sudo-rs**, coreutils are **uutils** | Output formats are close but not identical to GNU; verification regexes stay loose. |
-| Endpoint is a **VM** | No Wi-Fi radio, touchpad or backlight. Those runbooks are marked `environment: physical-only`. |
+A runbook is not a bypass around execution policy.
 
----
+- pre-checks and verification must be read-only;
+- remediation commands must still pass the runtime safety validator;
+- placeholders/parameters must be resolved and revalidated;
+- Red/unknown commands never execute;
+- Yellow classification means local/reversible state change and does **not** imply a current per-command approval modal;
+- the graded workflow executes allowlisted Yellow actions only inside the employee's accepted up-front troubleshooting scope.
 
-## 3. Specification B: Human-Readable Incident Report (Markdown)
+## 3. Hero runbook: `RB-CUPS-001`
 
-### Format Template
-```markdown
-# Incident Resolution Report: [INC-ID]
-- **Timestamp**: YYYY-MM-DD HH:MM:SS
-- **Host / User**: [Hostname] | [Username]
-- **Target Application / Domain**: [App Name]
-- **Initial User Prompt**: "[Quoted user problem description]"
+The CUPS scenario is designed for the simulated Ubuntu endpoint.
 
-### 1. Root Cause Summary
-A concise, plain-English summary of what went wrong.
+Expected causal lifecycle:
 
-### 2. Actions Taken by Agent
-Chronological audit log showing exact timestamps, actions, and safety tier:
-- [HH:MM:SS] [Green] Diagnosed: ...
-- [HH:MM:SS] [Yellow] User consented to: ...
-- [HH:MM:SS] [Green] Verification: ...
-
-### 3. Verification & Outcome
-- **Verification Check**: [Pass / Fail details]
-- **User Confirmation**: [Confirmed resolved / User declined / Auto-verified]
-- **Runbook Linked/Created**: [Runbook ID or "None (New Case)"]
-- **Final Status**: [RESOLVED | ESCALATED TO TIER 2]
+```text
+Demo Lab injects cups_stopped
+→ shared state reports CUPS inactive
+→ pre-check/diagnostic observes inactive
+→ runbook remediation runs through MockExecutor
+→ shared state becomes active and queue empty
+→ fresh verification observes the new state
 ```
 
-### Real-World Example: Incident Report
+The Mac host is not modified during the graded demo.
+
+The fact that the runbook targets Ubuntu commands remains useful: the simulation represents the command/evidence contract that a real endpoint adapter could implement later.
+
+## 4. Human-readable incident report
+
+The incident report describes what happened in one execution so a technician can understand the case without reconstructing it from raw database rows.
+
+Useful content includes:
+
 ```markdown
-# Incident Resolution Report: INC-20260908-041
-- **Timestamp**: 2026-09-08 10:15:22 UTC
-- **Host / User**: WS-ENG-089 | user: jsmith
-- **Target Application / Domain**: Windows Print Subsystem
-- **Initial User Prompt**: "My document has been stuck printing for 20 minutes and I can't cancel it."
+# Incident Resolution Report: INC-XXXXXXXX
 
-### 1. Root Cause Summary
-The Windows Print Spooler (`spoolsv.exe`) had deadlocked on a corrupted `.SPL` file in the print queue directory, preventing any new jobs from reaching the physical printer.
+- Timestamp
+- Simulated endpoint
+- Original employee prompt
 
-### 2. Actions Taken by Agent
-- [10:15:25] [Green] Query service status for `spooler`: Service was running but unresponsive to RPC calls.
-- [10:15:28] [Yellow] Prompted user to restart print service and clear print buffer. User clicked **Approve**.
-- [10:15:30] [Yellow] Force-stopped `spooler` service.
-- [10:15:32] [Yellow] Removed 2 orphaned spool files from `C:\Windows\System32\spool\PRINTERS\`.
-- [10:15:35] [Yellow] Restarted `spooler` service.
-- [10:15:38] [Green] Verified service state: Returned `Running`.
+## Root Cause / Assessment
+What the system concluded from the available evidence.
 
-### 3. Verification & Outcome
-- **Verification Check**: Print queue query returned 0 stuck jobs. Service responding normally.
-- **User Confirmation**: User tested printing a test page and clicked "Yes, It's Fixed".
-- **Runbook Linked**: `RB-PRINT-001.yaml` (Executed successfully in 16 seconds).
-- **Final Status**: RESOLVED (No human escalation required).
+## Actions Taken
+Chronological diagnostic, policy, remediation and verification evidence.
+
+## Verification & Employee Outcome
+- Technical verification: passed/failed
+- Employee confirmation: solved/still_broken/not applicable
+- Operational runbook used: RB-...
+- Final support status: closed or escalated
 ```
+
+The report should distinguish:
+
+- **technical verification** from **employee confirmation**;
+- **pre-existing runbook used** from **incident report generated**;
+- **deterministic/mock evidence** from any live-model evidence.
+
+## 5. Scenario A documentation
+
+For the hero CUPS success, Service Desk/incident documentation should make this sequence understandable:
+
+```text
+Employee: printer is not printing
+Diagnostic evidence: CUPS inactive
+Operational knowledge: RB-CUPS-001
+Permitted simulated actions: clear queue + restart CUPS
+Verification: CUPS active, queue empty
+Employee verdict: solved
+Final status: closed
+```
+
+## 6. Scenario B documentation
+
+When technical verification passes but the employee selects **Still Broken**, the generated documentation becomes Human-L2 handoff evidence.
+
+The technician should receive:
+
+- original report;
+- category/severity;
+- diagnostic findings;
+- runbook used;
+- actions attempted;
+- outputs/results;
+- technical verification;
+- employee negative verdict;
+- structured escalation assessment.
+
+The value is that automated Tier-1 work is preserved rather than discarded.
+
+## 7. Scenario C documentation
+
+For a prohibited request, documentation should show:
+
+```text
+request refused before remediation
+policy/security reason
+no remediation execution
+refusal recorded in audit
+Human-L2 escalation/review
+```
+
+Do not generate a “successful remediation” report for a policy refusal.
+
+## 8. Service Desk presentation
+
+The current Service Desk exposes both forms of documentation without conflating them:
+
+- Operational runbook: pre-existing knowledge used by the incident.
+- Incident report: human-readable case-specific record.
+
+The runbook may be rendered in a technician-friendly summary rather than showing raw YAML as the primary view, but its provenance should remain clear.
+
+## 9. Future runbook creation
+
+A production system could learn from recurring incidents, but automatically promoting model-generated commands into executable knowledge would create a serious trust boundary.
+
+The proposed future workflow is therefore:
+
+```text
+historical knowledge / tickets / scripts
+→ offline extraction/drafting
+→ automated safety/schema checks
+→ HUMAN REVIEW
+→ approved version-controlled runbook
+→ retrieval benchmark/regression
+→ executable store
+```
+
+This future process is documented in `docs/rag-ingestion-strategy.md`. It is **not** a feature the current graded runtime claims to perform autonomously.
