@@ -1,28 +1,24 @@
-# 🚀 Team Quickstart: Repository & AI Agent Setup
+# Team Quickstart — Current Integrated Project
 
-Welcome to the **Autonomous Enterprise IT Support Agent** project! 
+This guide is for teammates opening the repository after the three original workstreams have been integrated.
 
-This guide gets you set up in **under 5 minutes**—from cloning the repository to having your Antigravity AI assistant ready to guide you.
+Repository:
 
----
+```text
+raphschneider21/autonomous-it-support
+```
 
-## 💡 Important Note: You Do NOT Need to Be an Expert Coder!
-None of us need deep coding experience for this project. 
-- **The AI writes all the code, fixes bugs, and runs the tests.**
-- **Our job is to direct it**: We explain what we want in normal, plain English, review its ideas, and test the results.
-- Your AI assistant in Antigravity has been instructed to explain everything simply, avoid confusing jargon, and tell you what to do next at every step.
+The current product baseline is documented in:
 
----
+```text
+docs/final-demo-plan.md
+README.md
+CLAUDE.md / GEMINI.md
+```
 
-## 1. Accept Your GitHub Invite (1 Minute)
-1. Check your email (or go to [github.com/notifications](https://github.com/notifications)).
-2. Look for the invite to **`raphschneider21/autonomous-it-support`**.
-3. Click **"Accept Invitation"**.
+Do **not** use the old initial workstream split in `docs/roadmap.md` as an instruction to restart those tasks. Historical workstream documents remain useful for understanding how the product was built.
 
----
-
-## 2. Clone the Repository (1 Minute)
-Open your terminal and paste these commands:
+## 1. Clone/update the repository
 
 ```bash
 cd ~/Documents
@@ -30,30 +26,154 @@ git clone https://github.com/raphschneider21/autonomous-it-support.git
 cd autonomous-it-support
 ```
 
----
+If already cloned:
 
-## 3. Connect Antigravity to the Project (1 Minute)
-1. Open **Antigravity** (or Antigravity IDE).
-2. Click **File > Open Folder...** and choose the `autonomous-it-support` folder.
-3. Open a fresh chat with the agent and send this simple prompt:
-   > *"I am new to coding. Read `GEMINI.md` and `docs/roadmap.md`. Explain my project role to me in simple terms and suggest our first step."*
+```bash
+git switch main
+git pull --ff-only
+```
 
----
+Before making a change, create a task-specific branch rather than working directly on `main` unless the team explicitly agrees otherwise.
 
-## 4. Our 3-Way Workload Division (Pick Your Area)
-We divided the project into 3 distinct parts in `docs/roadmap.md` so each of us can focus on one piece without conflicting:
+Example:
 
-| Role | Subsystem Focus | What You'll Be Exploring |
-| :--- | :--- | :--- |
-| **`@Dev1`** | **Troubleshooting Rules & Safety** | Deciding which computer issues the agent is allowed to fix automatically vs. what needs permission. |
-| **`@Dev2`** | **Memory & Solution Documentation** | Designing how the agent remembers solutions so it can fix them faster next time. |
-| **`@Dev3`** | **User Experience & Ticket Escalation** | Designing what the user sees on screen and what information gets sent to human IT when the AI cannot solve the problem. |
+```bash
+git switch -c docs/my-documentation-task
+```
 
-Reply in our Teams chat with which area you'd like to take!
+## 2. Python environment
 
----
+Use a virtual environment if one is not already prepared:
 
-## 5. Daily Working Tips
-- **Talk in Plain English**: If the AI ever says something confusing, just reply: *"Explain that in plain English like I'm 10."*
-- **Let the AI Write the Code**: When a feature needs to be built, ask: *"Can you write the code and tests for this step and explain what you did?"*
-- **Keep Chats Short**: Start a new chat for every new task. This keeps the AI fast and saves free token limits.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+```
+
+Run the full suite with:
+
+```bash
+python3 -m pytest -q
+```
+
+## 3. Understand the current demo before changing anything
+
+The graded path runs on one Mac:
+
+```text
+Employee Support / Incident Engine       :8000
+Demo Lab                                 :8000/static/demo.html
+Simulated Ubuntu endpoint                ubuntu-demo-01
+Service Desk / Live Operations           :8001
+```
+
+The endpoint is simulated. The graded profile is deterministic/mock-backed for reliability.
+
+Read:
+
+```text
+docs/final-demo-plan.md
+.agents/rules/safety.md
+docs/schema.md
+```
+
+before changing runtime behaviour, interfaces or safety.
+
+## 4. One-click demo launch
+
+In Finder, the prepared launcher is:
+
+```text
+scripts/demo/Autonomous IT Support Demo.command
+```
+
+Stop only launcher-owned demo processes with:
+
+```text
+scripts/demo/Stop Autonomous IT Support Demo.command
+```
+
+Full launch/preflight/rehearsal instructions are in:
+
+```text
+scripts/demo/README.md
+```
+
+## 5. Canonical scenarios
+
+The accepted demo baseline has three outcomes:
+
+```text
+A. CUPS/printing fault → technically fixed → employee confirms solved → closed
+B. CUPS/printing fault → technically fixed → employee says Still Broken → Human L2
+C. Prohibited admin/security request → refused before remediation → escalated
+```
+
+There is also a disagreement/reconciliation scenario:
+
+```text
+Our team cannot access the ERP; users report a strange prompt
+```
+
+Do not change these flows casually; they are shared integration contracts and presentation evidence.
+
+## 6. How to use an AI coding assistant safely
+
+When starting a task, tell the assistant to:
+
+1. read `docs/final-demo-plan.md`;
+2. read the current task-specific documentation;
+3. inspect the current code before proposing changes;
+4. work only on the agreed branch/scope;
+5. run relevant tests;
+6. explain what changed in plain language;
+7. stop before merging to `main` unless explicitly authorised.
+
+For a teammate who wants more operational guidance, a useful opening instruction is:
+
+```text
+Read the repository instructions and current demo plan first. I may be unfamiliar with terminal/Git commands, so give me exact copyable commands one step at a time, explain what each step is doing briefly, and do not make destructive Git changes or merge to main without asking me.
+```
+
+## 7. Current documentation truth rules
+
+Do not write or present that:
+
+- the deterministic graded demo is using live Claude inference;
+- simulated remediation changed the Mac host;
+- a pre-existing runbook was generated during the incident;
+- the current flow has a per-command approval modal;
+- ServiceNow/Jira is actually integrated;
+- an old test count is still current without rerunning the suite.
+
+The current consent model is one up-front troubleshooting consent plus a strict default-deny runtime policy.
+
+## 8. Current documentation/evidence map
+
+```text
+docs/final-demo-plan.md          accepted product/demo baseline
+docs/problem-scope.md            business case and scope
+docs/user-journey.md             employee/L1/L2 lifecycle
+docs/schema.md                   current API/data contracts
+docs/tdd.md                      working final TDD source
+docs/tdd-evidence.md             engineering evidence dossier
+docs/benchmark-round2.md         deterministic before/after benchmark
+data/benchmarks/round1-live.json live Claude evaluation evidence
+.agents/rules/live-demo-spec.md  15-minute presentation plan
+.agents/rules/safety.md           current safety/consent policy
+```
+
+## 9. Before pushing a change
+
+At minimum:
+
+```bash
+git status
+python3 -m pytest -q
+git diff --check
+```
+
+Then commit only the intended files and push the task branch.
+
+If a test fails, do not delete/weaken it merely to obtain green status. Understand whether the implementation or the test is stale first.
