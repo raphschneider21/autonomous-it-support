@@ -70,7 +70,7 @@ function Stop-One([string]$Role, [string]$Label) {
         Write-Host "[OK] $Label unrelated process left untouched; stale record cleaned"
     }
     else {
-        Write-Host "[OK] $Label: $($result.Output)"
+        Write-Host "[OK] ${Label}: $($result.Output)"
     }
 }
 
