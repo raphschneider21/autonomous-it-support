@@ -1,0 +1,96 @@
+name: Windows demo launcher
+
+on:
+  push:
+    branches:
+      - feature/windows-one-click-demo
+  pull_request:
+    paths:
+      - "scripts/demo/**"
+      - "tests/test_windows_demo_launcher.py"
+      - "tests/test_mac_demo_launcher.py"
+      - ".github/workflows/windows-demo-launcher.yml"
+
+jobs:
+  windows-launcher:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Launcher regression tests
+        run: >-
+          python -m pytest -q
+          tests/test_mac_demo_launcher.py
+          tests/test_windows_demo_launcher.py
+          tests/test_demo_preflight.py
+          tests/test_service_desk.py
+
+      - name: Launch, verify, stop, and relaunch
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:DEMO_OPEN_BROWSER = "0"
+          $env:DEMO_NO_PAUSE = "1"
+
+          function Launch-Demo {
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\demo\launch_all_windows.ps1"
+            if ($LASTEXITCODE -ne 0) { throw "Windows demo launcher failed with exit code $LASTEXITCODE" }
+
+            $endpoint = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/health" -TimeoutSec 5
+            if ($endpoint.executor -ne "mock") { throw "Expected mock executor" }
+            if ($endpoint.agent_mode -ne "deterministic") { throw "Expected deterministic agent mode" }
+            if ($endpoint.endpoint -ne "ubuntu-demo-01") { throw "Unexpected simulated endpoint" }
+            if (-not $endpoint.monitoring_reachable) { throw "Service Desk is not reachable" }
+
+            $desk = Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/health" -TimeoutSec 5
+            if ($desk.status -ne "ok" -or $desk.service -ne "monitoring") { throw "Unexpected Service Desk health" }
+
+            $state = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/demo/state" -TimeoutSec 5
+            if ($state.mode -ne "simulated" -or $state.endpoint -ne "ubuntu-demo-01") { throw "Unexpected Demo Lab state" }
+          }
+
+          function Stop-Demo {
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\demo\stop_all_windows.ps1"
+            if ($LASTEXITCODE -ne 0) { throw "Windows demo stop launcher failed with exit code $LASTEXITCODE" }
+          }
+
+          try {
+            Launch-Demo
+            Stop-Demo
+            Launch-Demo
+          }
+          finally {
+            Stop-Demo
+          }
+
+      - name: Refuse a foreign process on port 8000
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:DEMO_OPEN_BROWSER = "0"
+          $env:DEMO_NO_PAUSE = "1"
+          $foreignOut = Join-Path $env:RUNNER_TEMP "foreign-http.out.log"
+          $foreignErr = Join-Path $env:RUNNER_TEMP "foreign-http.err.log"
+          $foreign = Start-Process -FilePath "python" -ArgumentList "-m http.server 8000 --bind 127.0.0.1" -RedirectStandardOutput $foreignOut -RedirectStandardError $foreignErr -WindowStyle Hidden -PassThru
+          try {
+            Start-Sleep -Seconds 2
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\demo\launch_all_windows.ps1"
+            if ($LASTEXITCODE -eq 0) { throw "Launcher incorrectly accepted a foreign process on port 8000" }
+            if ($foreign.HasExited) { throw "Launcher killed the unrelated process occupying port 8000" }
+          }
+          finally {
+            if (-not $foreign.HasExited) { Stop-Process -Id $foreign.Id -Force }
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\demo\stop_all_windows.ps1"
+          }
