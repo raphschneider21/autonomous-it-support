@@ -102,14 +102,16 @@ function Start-OrReuseService([string]$Role, [string]$Label, [string]$LogBase) {
 
     $rawArgs = @($script:PythonPrefix) + @($Helper, "run", "--role", $Role)
     $argumentLine = (($rawArgs | ForEach-Object { Quote-ProcessArgument $_ }) -join " ")
-    $process = Start-Process \
-        -FilePath $script:PythonExe \
-        -ArgumentList $argumentLine \
-        -WorkingDirectory $ProjectDir \
-        -RedirectStandardOutput $stdoutLog \
-        -RedirectStandardError $stderrLog \
-        -WindowStyle Hidden \
-        -PassThru
+    $startParams = @{
+        FilePath = $script:PythonExe
+        ArgumentList = $argumentLine
+        WorkingDirectory = $ProjectDir
+        RedirectStandardOutput = $stdoutLog
+        RedirectStandardError = $stderrLog
+        WindowStyle = "Hidden"
+        PassThru = $true
+    }
+    $process = Start-Process @startParams
 
     $record = Invoke-PythonCapture @($Helper, "record", "--role", $Role, "--pid", "$($process.Id)", "--runtime-dir", $RuntimeDir)
     if ($record.Code -ne 0) {
