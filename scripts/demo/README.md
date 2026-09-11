@@ -1,11 +1,11 @@
 # Demo runtime and rehearsal
 
-This guide describes the **current graded-demo baseline** on `integration/final-demo`.
+This guide describes the current deterministic, mock-backed graded-demo baseline.
 
-The demo runs entirely on the Mac while explicitly simulating an Ubuntu 26.04
-managed endpoint named `ubuntu-demo-01`. Dependencies from `requirements.txt`
-must already be installed. Launch performs no install, repository update, model
-call, or external internet request.
+The demo runs entirely on the macOS or Windows presentation host while explicitly
+simulating an Ubuntu 26.04 managed endpoint named `ubuntu-demo-01`. Dependencies
+from `requirements.txt` must already be installed. Launch performs no install,
+repository update, model call, or external internet request.
 
 ## Mac one-click launch
 
@@ -37,7 +37,7 @@ One-time Finder/Desktop setup from Terminal:
 
 ```sh
 cd /path/to/autonomous-it-support
-chmod +x scripts/demo/*.command scripts/demo/*_mac.sh scripts/demo/mac_runtime.py
+chmod +x scripts/demo/*.command scripts/demo/*_mac.sh scripts/demo/demo_runtime.py
 open scripts/demo
 ```
 
@@ -66,6 +66,57 @@ Runtime PID records and logs live under the gitignored `.demo-runtime/` director
 Logs are preserved after stopping for diagnosis; launcher PID files are removed.
 
 No real host service is modified in the graded path.
+
+## Windows one-click launch
+
+From `scripts\demo`, double-click:
+
+```text
+Autonomous IT Support Demo.cmd
+```
+
+The wrapper uses a process-local PowerShell execution-policy bypass; it does not
+change the user or machine policy. It prefers `.venv\Scripts\python.exe`, then
+looks for a suitable `python.exe` or `py.exe`. The launcher forces and verifies
+the same mock/deterministic profile as macOS, starts only the two local services,
+and opens exactly Employee Support, Demo Lab, and Service Desk.
+
+To stop only launcher-owned processes, double-click:
+
+```text
+Stop Autonomous IT Support Demo.cmd
+```
+
+The shared helper verifies each PID's creation time, executable image,
+repository, and role before terminating it (and verifies the full helper command
+on macOS). Stale records are removed without signalling the current PID owner.
+Unknown services on ports 8000 or 8001 are reported and left running.
+
+One-time Windows setup:
+
+1. Clone the repository and install `requirements.txt` into `.venv` (recommended)
+   or another Python 3.10+ environment.
+2. In File Explorer, open `scripts\demo`.
+3. Right-click each `.cmd` file and choose **Show more options > Send to > Desktop
+   (create shortcut)**. Keep the scripts in the repository; use shortcuts rather
+   than copying the `.cmd` files.
+4. Double-click the launch shortcut. Windows may show its normal first-run
+   security prompt for a downloaded file; no permanent policy change is needed.
+
+PowerShell equivalents for recovery or headless rehearsal are:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\demo\launch_all_windows.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\demo\stop_all_windows.ps1
+```
+
+Set `DEMO_OPEN_BROWSER=0` to validate without opening browser tabs, or set
+`DEMO_PYTHON` to a prepared Python executable. Windows uses the same log paths:
+
+```text
+.demo-runtime\logs\endpoint.log
+.demo-runtime\logs\service-desk.log
+```
 
 ## Launch the current topology
 

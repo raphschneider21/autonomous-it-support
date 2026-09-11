@@ -2,7 +2,7 @@
 set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-helper="$project_dir/scripts/demo/mac_runtime.py"
+helper="$project_dir/scripts/demo/demo_runtime.py"
 runtime_dir="${DEMO_RUNTIME_DIR:-$project_dir/.demo-runtime}"
 log_dir="$runtime_dir/logs"
 pid_dir="$runtime_dir/pids"
