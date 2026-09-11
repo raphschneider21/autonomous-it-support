@@ -56,7 +56,7 @@ def test_windows_stop_path_never_uses_broad_process_kills():
     assert "Stop-Process -Name" not in combined
     assert "killall" not in combined
     assert "pkill" not in combined
-    assert '["taskkill", "/PID", str(pid), "/T"]' in helper
+    assert '["taskkill", "/PID", str(pid), "/T", "/F"]' in helper
 
 
 def test_windows_process_identity_parses_cim_result(monkeypatch):
