@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Small, testable runtime helper for the macOS one-click demo launchers.
+"""Small, testable runtime helper for the one-click demo launchers.
+
+The health, port, readiness and surface checks are platform-neutral. Process
+identity/termination uses the native OS primitives so stale PID records can
+never be used to kill an unrelated process on either macOS or Windows.
 
 Only standard-library modules are imported for probing and process management.
 The ``run`` subcommand imports uvicorn only after the launcher has verified the
@@ -162,18 +166,39 @@ def check_presentation_surfaces() -> list[tuple[str, bool, str]]:
     return checks
 
 
-def process_exists(pid: int) -> bool:
+def _windows_process_identity(pid: int) -> tuple[str, str] | None:
+    """Return a stable creation timestamp and command line for one Windows PID."""
+    script = (
+        f"$p = Get-CimInstance Win32_Process -Filter \"ProcessId = {pid}\"; "
+        "if ($null -eq $p) { exit 3 }; "
+        "$created = $p.CreationDate.ToUniversalTime().ToString('o'); "
+        "$command = if ($null -eq $p.CommandLine) { '' } else { $p.CommandLine }; "
+        "[pscustomobject]@{started=$created; command=$command} | ConvertTo-Json -Compress"
+    )
+    try:
+        completed = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command", script],
+            check=False, capture_output=True, text=True,
+        )
+    except OSError:
+        return None
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return None
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        return None
+    return str(payload.get("started") or ""), str(payload.get("command") or "")
+
+
+def _posix_process_identity(pid: int) -> tuple[str, str] | None:
     try:
         os.kill(pid, 0)
-        return True
     except PermissionError:
-        return True
+        pass
     except ProcessLookupError:
-        return False
-
-
-def process_identity(pid: int) -> tuple[str, str] | None:
-    if not process_exists(pid):
+        return None
+    except OSError:
         return None
     try:
         started = subprocess.run(
@@ -187,6 +212,14 @@ def process_identity(pid: int) -> tuple[str, str] | None:
         return started, command
     except (OSError, subprocess.CalledProcessError):
         return None
+
+
+def process_identity(pid: int) -> tuple[str, str] | None:
+    return _windows_process_identity(pid) if os.name == "nt" else _posix_process_identity(pid)
+
+
+def process_exists(pid: int) -> bool:
+    return process_identity(pid) is not None
 
 
 def pid_file(role: str, root: Path) -> Path:
@@ -224,15 +257,31 @@ def _owned_process(record: dict[str, Any], role: str) -> tuple[bool, str]:
     started, command = identity
     helper_marker = str(Path(__file__).resolve())
     expected_role = f"--role {role}"
+    normalized_command = command.replace('"', "")
+    normalized_helper = helper_marker.replace('"', "")
     matches = (
         record.get("role") == role
         and record.get("repository") == str(repository_root())
         and record.get("started") == started
-        and helper_marker in command
-        and " run " in f" {command} "
-        and expected_role in command
+        and normalized_helper in normalized_command
+        and " run " in f" {normalized_command} "
+        and expected_role in normalized_command
     )
     return matches, "launcher-owned process verified" if matches else "PID now belongs to a different process"
+
+
+def _terminate_owned_process(pid: int) -> bool:
+    if os.name != "nt":
+        os.kill(pid, signal.SIGTERM)
+        return True
+    try:
+        completed = subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T"],
+            check=False, capture_output=True, text=True,
+        )
+    except OSError:
+        return False
+    return completed.returncode == 0 or not process_exists(pid)
 
 
 def stop_role(role: str, root: Path, timeout: float = 8.0) -> StopResult:
@@ -252,14 +301,15 @@ def stop_role(role: str, root: Path, timeout: float = 8.0) -> StopResult:
         return StopResult(state, f"{detail}; nothing was killed")
 
     pid = int(record["pid"])
-    os.kill(pid, signal.SIGTERM)
+    if not _terminate_owned_process(pid):
+        return StopResult("timeout", f"PID {pid} could not be terminated safely; left for manual inspection")
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if not process_exists(pid):
             path.unlink(missing_ok=True)
             return StopResult("stopped", f"PID {pid} stopped")
         time.sleep(0.1)
-    return StopResult("timeout", f"PID {pid} did not stop after SIGTERM; left for manual inspection")
+    return StopResult("timeout", f"PID {pid} did not stop after termination request; left for manual inspection")
 
 
 def run_service(role: str) -> int:
