@@ -116,7 +116,7 @@ function Start-OrReuseService([string]$Role, [string]$Label, [string]$LogBase) {
     $record = Invoke-PythonCapture @($Helper, "record", "--role", $Role, "--pid", "$($process.Id)", "--runtime-dir", $RuntimeDir)
     if ($record.Code -ne 0) {
         try { Stop-Process -Id $process.Id -ErrorAction SilentlyContinue } catch {}
-        Fail-Demo "Could not record ownership for $Label: $($record.Output)"
+        Fail-Demo "Could not record ownership for ${Label}: $($record.Output)"
     }
     $script:StartedRoles += $Role
 
