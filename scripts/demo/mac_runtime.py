@@ -276,7 +276,7 @@ def _terminate_owned_process(pid: int) -> bool:
         return True
     try:
         completed = subprocess.run(
-            ["taskkill", "/PID", str(pid), "/T"],
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
             check=False, capture_output=True, text=True,
         )
     except OSError:
